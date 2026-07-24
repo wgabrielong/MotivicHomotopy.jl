@@ -1,0 +1,58 @@
+STUB — hand-computed example output. NOT real Magma output.
+This file exists so the Julia-side comparison can be written and tested
+before real data lands, and so a contributor can see the format. The
+values below were computed BY HAND from the standard Hilbert-symbol and
+signature formulas (not captured from our own implementation — a stub
+derived from the implementation under test would encode its conventions
+as ground truth and defeat the point of an oracle). Exact spelling of
+Magma-printed objects (polynomials, ideal generators, real precision)
+will differ; the comparison must key on the labelled values, not on the
+incidental formatting.
+
+MAGMA-ORACLE-FORMAT 1
+magma_version: STUB.0-0
+run_date: STUB
+cqf_available: true
+=== RECORD 1 (tier 1) ===
+label: CALIBRATION over Q: <1,1,-3,-3,1,-1>, Macaulay2-validated. Not here for coverage - a canary: disagreement on THIS record means conventions or parsing, not mathematics.
+field_poly [Magma: DefiningPolynomial]: x - 1
+diag: [ 1, 1, -3, -3, 1, -1 ]
+determinant [Magma: Determinant]: -9
+real_place theta_approx [Magma: Evaluate(K.1, place)]: 1.00000000000000000000000000000
+real_place sign_vector [Magma: Sign(Evaluate(d_i, place))]: [ 1, 1, -1, -1, 1, -1 ]
+prime p=2 e=1 f=1 gens=[ 2 ] hasse=prod_(i<j)HilbertSymbol(d_i,d_j,P) [Magma: HilbertSymbol]: 1
+prime p=3 e=1 f=1 gens=[ 3 ] hasse=prod_(i<j)HilbertSymbol(d_i,d_j,P) [Magma: HilbertSymbol]: -1
+is_isotropic [Magma: IsIsotropic]: true
+witt_index [Magma: WittIndex]: 1
+=== END RECORD 1 (tier 1) ===
+=== RECORD 2 (tier 1) ===
+label: Q(sqrt2), rank 2: <1, sqrt2>
+field_poly [Magma: DefiningPolynomial]: x^2 - 2
+diag: [ 1, t1 ]
+determinant [Magma: Determinant]: t1
+real_place theta_approx [Magma: Evaluate(K.1, place)]: -1.41421356237309504880168872421
+real_place sign_vector [Magma: Sign(Evaluate(d_i, place))]: [ 1, -1 ]
+real_place theta_approx [Magma: Evaluate(K.1, place)]: 1.41421356237309504880168872421
+real_place sign_vector [Magma: Sign(Evaluate(d_i, place))]: [ 1, 1 ]
+prime p=2 e=2 f=1 gens=[ 2, t1 ] hasse=prod_(i<j)HilbertSymbol(d_i,d_j,P) [Magma: HilbertSymbol]: 1
+is_isotropic [Magma: IsIsotropic]: false
+witt_index [Magma: WittIndex]: 0
+=== END RECORD 2 (tier 1) ===
+=== RECORD 2 (tier 2) ===
+anisotropic_part [CQF: AnisotropicPart(gram matrix)]: [ 1  0 ]
+[ 0 t1 ]
+=== END RECORD 2 (tier 2) ===
+MAGMA-ORACLE-DONE
+
+Hand-computation notes (for auditability of this stub):
+- Record 1: det = 1*1*(-3)*(-3)*1*(-1) = -9. Signature at the real place:
+  four positive, two negative entries. Hasse products over the nontrivial
+  pairs {(-3,-3), (-3,-1), (-3,-1)}: at p=2 both -3 and -1 give
+  (u,v)_2 = (-1)^(eps(u)eps(v)) with eps(-3)=0, so every pair is +1; at
+  p=3, (-3,-3)_3 = -1 and each (-3,-1)_3 = (-1|3) = -1, product -1.
+  <1,-1> makes the form isotropic; the anisotropic part is <1,1,-3,-3>
+  (Macaulay2-validated), so the Witt index is (6-4)/2 = 1.
+- Record 2: 2 ramifies in Q(sqrt2), (2) = P^2, so e=2, f=1. The symbol
+  (1, sqrt2)_P is 1 because 1 is a square. The form is positive definite
+  under the embedding sending sqrt2 to +1.414..., hence anisotropic:
+  Witt index 0, and the form is its own anisotropic part.

@@ -87,6 +87,12 @@ function _is_well_defined_gwu(M::MatElem, c)
         is_square(d * c) || return false
     elseif R isa FinField
         is_square(d) == is_square(c) || return false
+    elseif R isa AbsSimpleNumField
+        # the QQ criterion is valid over K verbatim: d and c lie in the same
+        # square class iff d*c is a square. This branch must come before the
+        # étale-algebra fallback, which cannot verify the square class and
+        # only warns.
+        is_square(d * c) || return false
     else
         # étale algebra: M2 cannot verify the square class; it warns when c != det.
         d == c || @warn "Warning, unable to verify whether the determinant of M " *

@@ -6,3 +6,5 @@
 /docs/build/
 /CLAUDE.md
 /erratum_notes.md
+.DS_Store
+.claude/

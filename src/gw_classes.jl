@@ -198,10 +198,26 @@ _gram_equal(::Any, ::Any) = false
 Base.:(==)(a::GWClass, b::GWClass) = _gram_equal(a.matrix, b.matrix)
 Base.hash(a::GWClass, h::UInt) = hash(a.matrix, hash(:GWClass, h))
 
-# M2 prints the underlying matrix (net GrothendieckWittClass := net getMatrix)
-Base.show(io::IO, beta::GWClass) = show(io, beta.matrix)
-Base.show(io::IO, mime::MIME"text/plain", beta::GWClass) =
+# M2 prints the underlying matrix (net GrothendieckWittClass := net getMatrix).
+# Over a number field the matrix entries do not identify the field (the same
+# polynomial expression means different things in different fields), so the
+# field is appended; over every other backend the output is the matrix alone,
+# exactly as before.
+function Base.show(io::IO, beta::GWClass)
+    show(io, beta.matrix)
+    _show_field_suffix(io, beta.matrix)
+end
+function Base.show(io::IO, mime::MIME"text/plain", beta::GWClass)
     show(io, mime, beta.matrix)
+    _show_field_suffix(io, beta.matrix)
+end
+
+_show_field_suffix(::IO, ::Any) = nothing
+function _show_field_suffix(io::IO, M::MatElem)
+    R = base_ring(M)
+    R isa AbsSimpleNumField && print(io, "\nover ", R)
+    nothing
+end
 
 # --- operations (M2: addGW / multiplyGW) ----------------------------------------
 
@@ -299,3 +315,135 @@ gw_tensor_product(::GWClass, ::GWClass) = error(_FIELD_MISMATCH_ERR)
 # Optional operator aliases; the named functions are canonical.
 Base.:+(beta::GWClass, gamma::GWClass) = gw_direct_sum(beta, gamma)
 Base.:*(beta::GWClass, gamma::GWClass) = gw_tensor_product(beta, gamma)
+
+# --- semiring scalar multiple and power ----------------------------------------
+# GW classes here form a SEMIRING: sums and products exist, formal
+# differences do not (see the module documentation). Hence n >= 0 only.
+
+# the rank-zero form (additive identity) and <1> (multiplicative identity)
+# over the class's coefficient algebra
+_gw_zero_class(alg) = GWClass(_diag_gram(alg, Any[]))
+_gw_one_class(alg::Ring) = GWClass(_diag_gram(alg, [one(alg)]))
+_gw_one_class(::Type{T}) where {T <: Union{Float64, ComplexF64}} =
+    GWClass(_diag_gram(T, [1]))
+
+const _SEMIRING_ERR = "GW classes form a semiring: no negation or formal " *
+    "differences exist, so the integer factor must be nonnegative (see the " *
+    "MotivicHomotopy module documentation)"
+
+"""
+    n * beta
+    beta * n
+
+The `n`-fold orthogonal sum ``β ⊕ ⋯ ⊕ β`` of a [`GWClass`](@ref), for an
+integer ``n ≥ 0``; `0 * beta` is the rank-zero form. Negative `n` is an
+error: GW classes form a semiring here — there is no negation (see the
+module documentation).
+
+# Examples
+```julia-repl
+julia> 2 * diagonal_form(QQ, (1, 3))
+[1   0   0   0]
+[0   3   0   0]
+[0   0   1   0]
+[0   0   0   3]
+
+julia> form_rank(0 * diagonal_form(QQ, (1, 3)))
+0
+```
+
+# References
+- [Lam05] T. Y. Lam, *Introduction to quadratic forms over fields*, GSM 67, AMS, 2005 — Chapter II for the semiring of isometry classes inside the Witt–Grothendieck ring.
+
+See also [`gw_direct_sum`](@ref) (and `beta^n` for the tensor power).
+"""
+function Base.:*(n::Integer, beta::GWClass)
+    n >= 0 || error(_SEMIRING_ERR)
+    out = _gw_zero_class(gw_algebra(beta))
+    for _ in 1:n
+        out = gw_direct_sum(out, beta)
+    end
+    out
+end
+Base.:*(beta::GWClass, n::Integer) = n * beta
+
+"""
+    beta ^ n
+
+The `n`-fold tensor product ``β ⊗ ⋯ ⊗ β`` of a [`GWClass`](@ref), for an
+integer ``n ≥ 0``; `beta^0` is the rank-one form ``⟨1⟩``. Negative `n` is an
+error: GW classes form a semiring here and are not invertible (see the
+module documentation).
+
+# Examples
+```julia-repl
+julia> beta = diagonal_form(QQ, (1, 3));
+
+julia> form_rank(beta^3)
+8
+
+julia> beta^0
+[1]
+```
+
+# References
+- [Lam05] T. Y. Lam, *Introduction to quadratic forms over fields*, GSM 67, AMS, 2005 — Chapter II for the tensor product of bilinear forms.
+
+See also [`gw_tensor_product`](@ref), [`pfister_form`](@ref).
+"""
+function Base.:^(beta::GWClass, n::Integer)
+    n >= 0 || error(_SEMIRING_ERR)
+    out = _gw_one_class(gw_algebra(beta))
+    for _ in 1:n
+        out = gw_tensor_product(out, beta)
+    end
+    out
+end
+
+# Julia lowers a LITERAL beta^-1 to inv(beta) via literal_pow; route every
+# literal exponent through the method above so negative literals raise the
+# semiring error instead of a MethodError for inv.
+Base.literal_pow(::typeof(^), beta::GWClass, ::Val{p}) where {p} = beta^p
+
+# --- base change GW(Q) -> GW(K) --------------------------------------------------
+
+"""
+    gw_base_change(K::AbsSimpleNumField, beta::GWClass) -> GWClass
+
+The image of a class over ``\\mathbb{Q}`` under the base-change map
+``\\text{GW}(\\mathbb{Q}) → \\text{GW}(K)`` to a number field: the same Gram
+matrix, reinterpreted entrywise over ``K``. Base change is a ring
+homomorphism — it commutes with [`gw_direct_sum`](@ref) and
+[`gw_tensor_product`](@ref) — and preserves the rank and the square class of
+the discriminant (a rational square is a square in ``K``; the converse can
+fail, so distinct classes over ``\\mathbb{Q}`` may collide in ``\\text{GW}(K)``:
+``⟨1⟩ ≠ ⟨2⟩`` over ``\\mathbb{Q}`` but ``⟨1⟩ ≅ ⟨2⟩`` over ``\\mathbb{Q}(\\sqrt 2)``).
+
+Only ``\\mathbb{Q} → K`` is provided: between two number fields the map
+depends on a choice of embedding, which the Gram matrix does not carry.
+
+# Examples
+```julia-repl
+julia> K, s = quadratic_field(2);
+
+julia> gw_base_change(K, diagonal_form(QQ, (1, -2)))
+[1    0]
+[0   -2]
+over Real quadratic field defined by x^2 - 2
+
+julia> is_isomorphic_form(gw_base_change(K, diagonal_form(QQ, (1, -2))),
+                          hyperbolic_form(K))
+true
+```
+
+# References
+- [Lam05] T. Y. Lam, *Introduction to quadratic forms over fields*, GSM 67, AMS, 2005 — VII.2 for scalar extension of quadratic forms.
+
+See also [`GWClass`](@ref), [`gw_direct_sum`](@ref).
+"""
+function gw_base_change(K::AbsSimpleNumField, beta::GWClass)
+    M = gw_matrix(beta)
+    (M isa MatElem && base_ring(M) isa QQField) ||
+        error("gw_base_change is the map GW(Q) -> GW(K): the class must be over QQ")
+    GWClass(map_entries(K, M))
+end

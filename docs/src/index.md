@@ -34,6 +34,19 @@ is_isomorphic_form(global_A1_degree(f), gw_direct_sum(d1, d2))   # true
 
 # Witt decomposition of a form
 sum_decomposition_string(GWClass(QQ[1 2 3; 2 4 5; 3 5 6]))       # "H + <1>"
+
+# Forms over a number field: invariants at places and the anisotropic part
+# (Koprowski–Rothkegel; see the "Working with forms" page)
+K, s = quadratic_field(-7)
+q = diagonal_form(K, (1, 1, 1, 1))          # anisotropic at the dyadic places
+anisotropic_dimension(q)                     # 4
+is_isomorphic_form(anisotropic_part(q), q)   # true
+
+P = prime_decomposition(maximal_order(K), 2)[1][1]
+local_anisotropic_dimension(q, P)            # 4   (the completion at P is Q₂)
+local_hilbert_symbol(-1, -1, P)              # -1
+sum_decomposition_string(gw_direct_sum(q, hyperbolic_form(K)))
+                                             # "H + <1> + <2> + <1> + <2>"
 ```
 
 The *unstable* degrees compute numerically over ``\mathbb{C}`` when given
@@ -50,7 +63,7 @@ result. Forms over ``\mathbb{R}`` / ``\mathbb{C}`` are represented by `Matrix{Fl
 `Matrix{ComplexF64}` Gram matrices; pass `Float64` / `ComplexF64` where a
 base field is expected.
 
-See the [API reference](@ref) for every exported function, grouped by topic.
+The full reference is split by task: [Working with forms](@ref), [Arithmetic methods](@ref), and [Computing A¹-Brouwer degrees](@ref).
 
 ## Conventions
 

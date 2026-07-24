@@ -44,8 +44,7 @@ end
 function _global_unstable_A1_degree(f::MPolyRingElem, g::MPolyRingElem)
     S = parent(f)
     kk = coefficient_ring(S)
-    (kk isa QQField || (kk isa FinField && characteristic(kk) != 2)) ||
-        error(_UNSTABLE_FIELD_ERR)
+    _require_exact_supported(kk, _UNSTABLE_FIELD_ERR)
 
     # M2 normalizes g by leadCoefficient(f) first, then f
     lc = leading_coefficient(f)
@@ -199,8 +198,7 @@ See also [`global_unstable_A1_degree`](@ref), [`divisorial_sum`](@ref),
 function local_unstable_A1_degree(q::FracElem{<:MPolyRingElem}, r)
     S = base_ring(parent(q))
     kk = coefficient_ring(S)
-    (kk isa QQField || (kk isa FinField && characteristic(kk) != 2)) ||
-        error(_UNSTABLE_FIELD_ERR)
+    _require_exact_supported(kk, _UNSTABLE_FIELD_ERR)
     rr = _coerce_into(kk, r)
     rr === nothing && error("root not from the base field of the polynomial")
     ngens(S) == 1 || error("must input function of one variable")

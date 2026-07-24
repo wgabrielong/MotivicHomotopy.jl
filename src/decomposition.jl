@@ -66,7 +66,7 @@ function _aniso_part_qq_dim2(beta::GWClass)
     end
 
     # Step 2: signed discriminant (Koprowski/Rothkegel convention)
-    d = (-1)^div(n * (n - 1), 2) * integral_discriminant(q)
+    d = signed_discriminant(q)
 
     # Step 3: relevant primes of the ORIGINAL beta, plus 2 (M2 appends 2 at the end)
     S = relevant_primes(beta)
@@ -153,9 +153,15 @@ end
     anisotropic_part(beta::GWClass)
     anisotropic_part(A)
 
-The anisotropic part of a symmetric bilinear form over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite
-field of odd characteristic: the (unique up to isomorphism) anisotropic form
-``β_a`` in the Witt decomposition ``β ≅ β_a ⊕ n·\\mathbb{H}``.
+The anisotropic part of a symmetric bilinear form over ``\\mathbb{Q}``, a number field,
+``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd characteristic: the (unique up to
+isomorphism) anisotropic form ``β_a`` in the Witt decomposition
+``β ≅ β_a ⊕ n·\\mathbb{H}``. Over a number field this runs [KR23]'s Algorithms 5–8
+and Observation 5.3 (see `_anisotropic_part_nf`), and each output entry is
+**size-reduced within its square class** — a readability measure, *not* a
+canonical form (none exists over ``K``); isomorphic inputs may still produce
+entrywise-different output, so compare results with
+[`is_isomorphic_form`](@ref), never with `==`.
 
 Over ``\\mathbb{C}``, ``\\mathbb{R}``, and finite fields this is a short computation from the rank,
 signature, or discriminant. Over ``\\mathbb{Q}`` it uses the number-field algorithms of
@@ -178,13 +184,31 @@ See also [`anisotropic_dimension`](@ref), [`gw_witt_index`](@ref),
 """
 function anisotropic_part(A::MatElem)
     R = base_ring(A)
-    (R isa QQField || (R isa FinField && characteristic(R) != 2)) ||
-        error(_UNSUPPORTED_FIELD_ERR)
+    _require_form_supported(R, _UNSUPPORTED_FIELD_ERR)
     _is_symmetric_square(A) || error("Underlying matrix is not symmetric")
-    if R isa QQField
-        return gw_matrix(_anisotropic_part_qq(GWClass(_nondegenerate_part_diagonal(A))))
-    end
-    # finite field: <1> or <e> for dim 1; <1,-e> shape for dim 2
+    _anisotropic_part(field_kind(R), A)
+end
+
+# The KR driver's output is diagonal by construction; each entry is
+# SIZE-reduced within its square class at this boundary (and only here — the
+# algorithms themselves stay in FacElem arithmetic). This is not a canonical
+# form: none exists over K, and isomorphic outputs may still print
+# differently. Entrywise square-class preservation preserves the isometry
+# class of the whole form.
+function _anisotropic_part(::NumberFieldKind, A::MatElem)
+    M = gw_matrix(_anisotropic_part_nf(GWClass(_nondegenerate_part_diagonal(A))))
+    is_diagonal(M) ||
+        error("internal error: the KR driver returned a non-diagonal Gram matrix")
+    diagonal_matrix(base_ring(M),
+                    [_size_reduced_square_class_rep(M[i, i]) for i in 1:nrows(M)])
+end
+
+_anisotropic_part(::RationalKind, A::MatElem) =
+    gw_matrix(_anisotropic_part_qq(GWClass(_nondegenerate_part_diagonal(A))))
+
+# finite field: <1> or <e> for dim 1; <1,-e> shape for dim 2
+function _anisotropic_part(::FiniteKind, A::MatElem)
+    R = base_ring(A)
     diagA = diagonalize_via_congruence(A)
     r = form_rank(diagA)
     ad = anisotropic_dimension(A)
@@ -199,6 +223,8 @@ function anisotropic_part(A::MatElem)
              R((-1)^div(r - 2, 2)) * det(_nondegenerate_part_diagonal(diagA))])
     end
 end
+
+_anisotropic_part(::FieldKind, ::MatElem) = error(_UNSUPPORTED_FIELD_ERR)
 
 function anisotropic_part(A::Matrix{Float64})
     _is_symmetric_square(A) || error("Underlying matrix is not symmetric")
@@ -272,7 +298,12 @@ reflects the classification of a form by its rank and signature ([L05, II
 Proposition 3.5]).
 
 The result overwrites the `diagonal_class` cache slot on `beta`, so a later
-[`diagonal_class`](@ref) call returns this representative.
+[`diagonal_class`](@ref) call returns this representative. Over a number
+field the entries of the decomposition are **size-reduced within their
+square classes** (via the reduced [`anisotropic_part`](@ref)), so the cache
+only ever holds reduced entries whichever of the two writers ran; this is
+size reduction, *not* a canonical form — isomorphic classes may still
+decompose with different entries over ``K``.
 
 # Examples
 ```julia-repl

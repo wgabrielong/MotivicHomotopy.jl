@@ -40,9 +40,7 @@ See also [`is_isotropic_form`](@ref), [`anisotropic_dimension`](@ref),
 """
 function is_anisotropic_form(A::Union{MatElem, Matrix{Float64}, Matrix{ComplexF64}})
     if A isa MatElem
-        R = base_ring(A)
-        (R isa QQField || (R isa FinField && characteristic(R) != 2)) ||
-            error(_UNSUPPORTED_FIELD_ERR)
+        _require_form_supported(base_ring(A), _UNSUPPORTED_FIELD_ERR)
     end
     _n_of(A) == anisotropic_dimension(A)
 end

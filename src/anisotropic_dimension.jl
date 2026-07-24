@@ -10,11 +10,12 @@ const _UNSUPPORTED_FIELD_ERR = "Base field not supported; only implemented over 
 
 # M2: isHyperbolicQQp — is beta totally hyperbolic over QQ_p? (Algorithm 6)
 function _is_hyperbolic_qqp(beta::GWClass, p)
-    gw_base_field(beta) == QQ || error("GrothendieckWittClass is not over QQ")
+    field_kind(gw_base_field(beta)) isa RationalKind ||
+        error("GrothendieckWittClass is not over QQ")
     is_prime(ZZ(p)) || error("second argument must be a prime number")
     r = form_rank(beta)
     isodd(r) && return false
-    d = (-1)^div(r * (r - 1), 2) * integral_discriminant(beta)
+    d = signed_discriminant(beta)
     _is_padic_square(d, p) || return false
     m = div(r, 2)
     hw_hyperbolic = hilbert_symbol_padic(-1, -1, p)^div(m * (m - 1), 2)
@@ -42,12 +43,13 @@ julia> anisotropic_dimension_qqp(diagonal_form(QQ, (1, -1, 2)), 2)
 See also [`anisotropic_dimension`](@ref).
 """
 function anisotropic_dimension_qqp(beta::GWClass, p)
-    gw_base_field(beta) == QQ || error("GrothendieckWittClass is not over QQ")
+    field_kind(gw_base_field(beta)) isa RationalKind ||
+        error("GrothendieckWittClass is not over QQ")
     is_prime(ZZ(p)) || error("second argument must be a prime number")
     r = form_rank(beta)
     if iseven(r)
         _is_hyperbolic_qqp(beta, p) && return 0
-        d = (-1)^div(r * (r - 1), 2) * integral_discriminant(beta)
+        d = signed_discriminant(beta)
         return _is_padic_square(d, p) ? 4 : 2
     else
         c = (-1)^div(r * (r + 1), 2) * integral_discriminant(beta)
@@ -59,7 +61,8 @@ end
 # M2: getAnisotropicDimensionQQ — max over RR (|signature|), QQ_2, and the
 # relevant primes (Algorithm 9)
 function _anisotropic_dimension_qq(beta::GWClass)
-    gw_base_field(beta) == QQ || error("GrothendieckWittClass is not over QQ")
+    field_kind(gw_base_field(beta)) isa RationalKind ||
+        error("GrothendieckWittClass is not over QQ")
     dims = Int[abs(form_signature(beta)), anisotropic_dimension_qqp(beta, 2)]
     for p in relevant_primes(beta)
         push!(dims, anisotropic_dimension_qqp(beta, p))
@@ -72,7 +75,8 @@ end
     anisotropic_dimension(beta::GWClass)
     anisotropic_dimension(A)
 
-The anisotropic dimension of a symmetric bilinear form over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a
+The anisotropic dimension of a symmetric bilinear form over ``\\mathbb{Q}``, a number
+field, ``\\mathbb{R}``, ``\\mathbb{C}``, or a
 finite field of odd characteristic. By the Witt decomposition theorem any
 nondegenerate form decomposes uniquely as ``β ≅ n·\\mathbb{H} ⊕ β_a`` with ``β_a``
 anisotropic; the anisotropic dimension is the rank of ``β_a``.
@@ -80,7 +84,14 @@ anisotropic; the anisotropic dimension is the rank of ``β_a``.
 Over ``\\mathbb{Q}`` it is the maximum of the anisotropic dimensions over all completions:
 ``\\lvert \\text{signature} \\rvert`` at the real place and
 [`anisotropic_dimension_qqp`](@ref) at 2 and the [`relevant_primes`](@ref)
-([KC18, Algorithm 9]).
+([KC18, Algorithm 9]). Over a number field the same maximum runs over the
+real places and the finite places of ``𝔓(q) ∪ \\{\\text{dyadic}\\}``
+([`local_anisotropic_dimension`](@ref)), **plus one global correction** the
+bare maximum misses: a form of even rank whose signed discriminant is not a
+square in ``K`` has anisotropic dimension at least 2, witnessed at a place
+outside that finite set (the concrete witness is
+``⟨1, -(35+6\\sqrt{34})⟩`` over ``\\mathbb{Q}(\\sqrt{34})``, anisotropic with
+every local dimension on the finite set zero).
 
 # Examples
 ```julia-repl
@@ -96,23 +107,28 @@ See also [`gw_witt_index`](@ref), [`anisotropic_part`](@ref),
 """
 function anisotropic_dimension(A::MatElem)
     R = base_ring(A)
-    (R isa QQField || (R isa FinField && characteristic(R) != 2)) ||
-        error(_UNSUPPORTED_FIELD_ERR)
+    _require_form_supported(R, _UNSUPPORTED_FIELD_ERR)
     _is_symmetric_square(A) || error("Matrix is not symmetric")
-    if R isa QQField
-        return _anisotropic_dimension_qq(GWClass(_nondegenerate_part_diagonal(A)))
+    _anisotropic_dimension(field_kind(R), A)
+end
+
+_anisotropic_dimension(::RationalKind, A::MatElem) =
+    _anisotropic_dimension_qq(GWClass(_nondegenerate_part_diagonal(A)))
+
+function _anisotropic_dimension(::FiniteKind, A::MatElem)
+    R = base_ring(A)
+    diagA = diagonalize_via_congruence(A)
+    r = form_rank(diagA)   # number of nonzero diagonal entries
+    isodd(r) && return 1
+    if is_square(det(_nondegenerate_part_diagonal(diagA))) ==
+       is_square(R((-1)^div(r, 2)))
+        return 0
     else
-        diagA = diagonalize_via_congruence(A)
-        r = form_rank(diagA)   # number of nonzero diagonal entries
-        isodd(r) && return 1
-        if is_square(det(_nondegenerate_part_diagonal(diagA))) ==
-           is_square(R((-1)^div(r, 2)))
-            return 0
-        else
-            return 2
-        end
+        return 2
     end
 end
+
+_anisotropic_dimension(::FieldKind, ::MatElem) = error(_UNSUPPORTED_FIELD_ERR)
 
 function anisotropic_dimension(A::Matrix{Float64})
     _is_symmetric_square(A) || error("Matrix is not symmetric")

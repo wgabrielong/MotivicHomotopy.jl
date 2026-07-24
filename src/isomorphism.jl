@@ -17,8 +17,10 @@ const _NOT_SYMMETRIC_ERR = "Underlying matrix is not symmetric"
 
 # M2: isIsomorphicFormQQ
 function _is_isomorphic_form_qq(alpha::GWClass, beta::GWClass)
-    gw_base_field(alpha) == QQ || error("first input must have base field QQ")
-    gw_base_field(beta) == QQ || error("second input must have base field QQ")
+    field_kind(gw_base_field(alpha)) isa RationalKind ||
+        error("first input must have base field QQ")
+    field_kind(gw_base_field(beta)) isa RationalKind ||
+        error("second input must have base field QQ")
     form_rank(alpha) == form_rank(beta) || return false
     form_signature(alpha) == form_signature(beta) || return false
     integral_discriminant(alpha) == integral_discriminant(beta) || return false
@@ -28,8 +30,6 @@ function _is_isomorphic_form_qq(alpha::GWClass, beta::GWClass)
     end
     true
 end
-
-_supported_exact_field(R) = R isa QQField || (R isa FinField && characteristic(R) != 2)
 
 # transfer x into k1 when both finite fields have the same order (prime fields via ZZ)
 function _same_order_transfer(k1::FinField, x::FinFieldElem)
@@ -46,7 +46,8 @@ end
     is_isomorphic_form(alpha, beta; linear_tolerance = 1e-6)
 
 Whether two Grothendieck–Witt classes (or unstable classes, or raw symmetric
-matrices) over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd characteristic represent
+matrices) over ``\\mathbb{Q}``, a number field, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd
+characteristic represent
 the same element of ``\\text{GW}(k)`` (resp. ``\\text{GW}^u(k)``). This is the mathematical
 notion of equality; `==` on classes compares Gram matrices literally.
 
@@ -60,9 +61,16 @@ The classification used per field:
   Thm. 7]; [L05, VI.3.3]). Each Hasse–Witt invariant is a product of values of
   a *symbol* on the diagonal entries ([MH73, III.5.4]).
 - **finite fields**: rank and the square class of the discriminant.
+- **number fields**: rank, the signature at every real place
+  ([`form_signatures`](@ref)), the square class of the
+  [`signed_discriminant`](@ref), and the Hasse invariants
+  ([`hasse_witt_invariant`](@ref)) at the finitely many places where either
+  form can have a nontrivial one — Hasse–Minkowski over ``K`` ([L05,
+  VI.3.3]). Both classes must be over the *identical* field object.
 
 For [`GWuClass`](@ref)es the fibered-product structure of ``\\text{GW}^u(k)`` reduces
-the test to: stable parts isomorphic and ``k^×``-factors equal. Over ``\\mathbb{Q}`` and
+the test to: stable parts isomorphic and ``k^×``-factors equal. Over ``\\mathbb{Q}``,
+number fields, and
 finite fields the scalars must agree exactly; over ``\\mathbb{R}`` and ``\\mathbb{C}`` they are
 considered equal when the absolute value of their difference is below
 `linear_tolerance` (default `1e-6`).
@@ -79,6 +87,11 @@ true
 julia> is_isomorphic_form(GWClass(QQ[1 4 7; 4 3 2; 7 2 -1]),
                           GWClass(QQ[0 0 1; 0 2 7; 1 7 3]))
 false
+
+julia> K, s = quadratic_field(-7);
+
+julia> is_isomorphic_form(diagonal_form(K, (1, -1)), hyperbolic_form(K))
+true
 
 julia> u1 = GWuClass(QQ[2 3 1; 3 -1 0; 1 0 0], 1);
 
@@ -98,15 +111,21 @@ See also [`form_rank`](@ref), [`form_signature`](@ref),
 """
 function is_isomorphic_form(A::MatElem, B::MatElem; linear_tolerance::Real = 1e-6)
     k1, k2 = base_ring(A), base_ring(B)
-    _supported_exact_field(k1) || error(_UNSUPPORTED_FIELD_ERR)
-    _supported_exact_field(k2) || error(_UNSUPPORTED_FIELD_ERR)
+    _require_form_supported(k1, _UNSUPPORTED_FIELD_ERR)
+    _require_form_supported(k2, _UNSUPPORTED_FIELD_ERR)
     _is_symmetric_square(A) || error(_NOT_SYMMETRIC_ERR)
     _is_symmetric_square(B) || error(_NOT_SYMMETRIC_ERR)
-    if k1 isa QQField && k2 isa QQField
+    kind1, kind2 = field_kind(k1), field_kind(k2)
+    if kind1 isa RationalKind && kind2 isa RationalKind
         return nrows(A) == nrows(B) &&
             _is_isomorphic_form_qq(GWClass(_nondegenerate_part_diagonal(A)),
                                    GWClass(_nondegenerate_part_diagonal(B)))
-    elseif k1 isa FinField && k2 isa FinField && order(k1) == order(k2)
+    elseif kind1 isa NumberFieldKind && kind2 isa NumberFieldKind
+        k1 === k2 || error(_DIFFERENT_FIELDS_ERR)
+        return nrows(A) == nrows(B) &&
+            _is_isomorphic_form_nf(GWClass(_nondegenerate_part_diagonal(A)),
+                                   GWClass(_nondegenerate_part_diagonal(B)))
+    elseif kind1 isa FiniteKind && kind2 isa FiniteKind && order(k1) == order(k2)
         nrows(A) == nrows(B) || return false
         form_rank(A) == form_rank(B) || return false
         detB = _same_order_transfer(k1, det(_nondegenerate_part_diagonal(B)))
@@ -155,10 +174,17 @@ function is_isomorphic_form(alpha::GWuClass, beta::GWuClass;
            order(parent(r1)) == order(parent(r2))
         return is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta)) &&
             r1 == _same_order_transfer(parent(r1), r2)
+    elseif r1 isa AbsSimpleNumFieldElem && r2 isa AbsSimpleNumFieldElem &&
+           parent(r1) === parent(r2)
+        # same rule as over QQ: the k^x-coordinate of the fibered product
+        # GW^u(K) = GW(K) x_{K^x/(K^x)^2} K^x is an ELEMENT of K^x, so the
+        # scalars compare exactly; the stable parts compare by isometry
+        return is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta)) && r1 == r2
     end
     error(_DIFFERENT_FIELDS_ERR)
 end
 
 _scalar_field_supported(r::Union{Float64, ComplexF64, QQFieldElem}) = true
 _scalar_field_supported(r::FinFieldElem) = characteristic(parent(r)) != 2
+_scalar_field_supported(r::AbsSimpleNumFieldElem) = true
 _scalar_field_supported(::Any) = false
