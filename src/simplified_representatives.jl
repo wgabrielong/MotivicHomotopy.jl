@@ -18,6 +18,13 @@ representative; over a finite field entries become 1 or a fixed nonsquare;
 over ``\\mathbb{R}`` entries become ±1 and over ``\\mathbb{C}`` they become 1. For a [`GWuClass`](@ref)
 the stable part is diagonalized and the scalar carried through unchanged.
 
+Over a number field each entry is **size-reduced within its square class** —
+this is *not* a canonical form, because none exists over ``K``: reducing the
+ideal exponents mod 2 needs the leftover ideal class to be trivial, and even
+then the unit group leaves the representative open. Two isomorphic classes
+may therefore still have different `diagonal_class` output over ``K``;
+compare with [`is_isomorphic_form`](@ref), never with `==`.
+
 The result is cached on `beta`, so repeated calls are free. Note that
 [`sum_decomposition`](@ref) *overwrites* this cache with its own
 representative, so the value returned by `diagonal_class` can change after a

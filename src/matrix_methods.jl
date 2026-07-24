@@ -173,12 +173,13 @@ function _diagonalize_and_simplify(M::MatElem)
     A = diagonalize_via_congruence(M)
     R = base_ring(M)
     n = nrows(A)
-    if R isa QQField
+    kind = field_kind(R)
+    if kind isa RationalKind
         # squarefree part of each diagonal entry
         for i in 1:n
             A[i, i] = R(_squarefree_part(A[i, i]))
         end
-    elseif R isa FinField && characteristic(R) != 2
+    elseif kind isa FiniteKind
         # squares -> 1; nonsquares -> a fixed nonsquare representative, which is -1
         # unless -1 is itself a square, in which case it is the first nonsquare on
         # the diagonal
@@ -195,6 +196,16 @@ function _diagonalize_and_simplify(M::MatElem)
             if !iszero(A[i, i])
                 A[i, i] = is_square(A[i, i]) ? one(R) : non_square_rep
             end
+        end
+    elseif kind isa NumberFieldKind
+        # SIZE reduction of each entry within its square class — NOT a
+        # canonical or squarefree normal form, which does not exist over K
+        # (see _size_reduced_square_class_rep). Two isomorphic forms may
+        # still print differently. Deviation from M2 v2.0, which applies no
+        # simplification over fields it does not special-case; without the
+        # reduction, boundary entries grow to dozens of digits.
+        for i in 1:n
+            iszero(A[i, i]) || (A[i, i] = _size_reduced_square_class_rep(A[i, i]))
         end
     end
     # other fields: M2 (v2.0) applies no simplification and returns the

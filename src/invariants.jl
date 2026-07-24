@@ -30,7 +30,7 @@ _n_of(M::FloatGram) = size(M, 1)
 # --- M2: countPosDiagEntries / countNegDiagEntries (internal; QQ and RR only) ------
 
 function _pos_neg_diag_counts(M::Union{MatElem, Matrix{Float64}})
-    M isa MatElem && !(base_ring(M) isa QQField) &&
+    M isa MatElem && !(field_kind(base_ring(M)) isa RationalKind) &&
         error("Only implemented over QQ and RR")
     _is_symmetric_square(M) || error("Matrix is not symmetric")
     A = _is_diag(M) ? M : diagonalize_via_congruence(M)
@@ -71,12 +71,57 @@ See also [`form_rank`](@ref), [`integral_discriminant`](@ref),
 """
 function form_signature(beta::GWClass)
     M = gw_matrix(beta)
-    if M isa MatElem && base_ring(M) isa QQField
+    if M isa MatElem && field_kind(base_ring(M)) isa RationalKind
         st = signature_tuple(quadratic_space(QQ, M))   # (pos, zero, neg)
         return st[1] - st[3]
     end
     pos, neg = _pos_neg_diag_counts(M)
     pos - neg
+end
+
+# --- signatures over a number field ------------------------------------------------
+# Over K a form has one signature per real place, so the single-signature
+# method above stays QQ/RR-only and the number-field API is per-place.
+
+"""
+    form_signature(beta::GWClass, sigma)
+
+The signature of a form over a number field ``K`` at one real place (or real
+embedding) `sigma` of ``K``: the number of diagonal entries of a
+diagonalization that are positive under `sigma` minus the number that are
+negative. `sigma` may be an `InfPlc` or a `NumFieldEmb`; it must be real and
+must belong to the base field of `beta`.
+
+See also [`form_signatures`](@ref).
+"""
+function form_signature(beta::GWClass, sigma::Union{InfPlc, Hecke.NumFieldEmb})
+    M = gw_matrix(beta)
+    M isa MatElem && _check_nonsimple(base_ring(M))
+    (M isa MatElem && field_kind(base_ring(M)) isa NumberFieldKind) ||
+        error("form_signature at a place requires a class over a number field")
+    number_field(sigma) === base_ring(M) ||
+        error("the place does not belong to the base field of the class")
+    is_real(sigma) || error("the place is not real")
+    sum(Int(sign(d, sigma)) for d in diagonal_entries(beta); init = 0)
+end
+
+"""
+    form_signatures(beta::GWClass)
+
+The signatures of a form over a number field ``K`` at all real places of
+``K``, as a `Vector{Int}` indexed like `real_places(K)`. Empty when ``K``
+has no real embeddings.
+
+See also [`form_signature`](@ref).
+"""
+function form_signatures(beta::GWClass)
+    M = gw_matrix(beta)
+    M isa MatElem && _check_nonsimple(base_ring(M))
+    (M isa MatElem && field_kind(base_ring(M)) isa NumberFieldKind) ||
+        error("form_signatures requires a class over a number field")
+    D = diagonal_entries(beta)
+    [sum(Int(sign(d, sigma)) for d in D; init = 0)
+     for sigma in real_places(base_ring(M))]
 end
 
 # --- M2: getIntegralDiscriminant (QQ only) ------------------------------------------
@@ -100,8 +145,50 @@ julia> integral_discriminant(beta)
 See also [`form_signature`](@ref), [`hasse_witt_invariant`](@ref).
 """
 function integral_discriminant(beta::GWClass)
-    gw_base_field(beta) == QQ || error("GrothendieckWittClass is not over QQ")
+    field_kind(gw_base_field(beta)) isa RationalKind ||
+        error("GrothendieckWittClass is not over QQ")
     _squarefree_part(prod(diagonal_entries(beta); init = one(QQ)))
+end
+
+# --- signed discriminant ([KR21] §2 convention) -------------------------------------
+
+"""
+    signed_discriminant(beta::GWClass)
+
+The signed discriminant ``disc(q) = (-1)^{n(n-1)/2} a_1 ⋯ a_n`` of a diagonal
+representative ``⟨a_1, …, a_n⟩`` — the convention of [KR21] §2 (Szymiczek,
+Def. 15.2.1). This is the discriminant the number-field algorithms are stated
+in; [`integral_discriminant`](@ref) is the *unsigned* determinant square
+class and stays as the M2-faithful ℚ API.
+
+Over ℚ the result is the squarefree integer representative, i.e. literally
+``(-1)^{n(n-1)/2}`` times [`integral_discriminant`](@ref). Over a finite
+field it is a field element. Over a number field it is an ``O_K``-integral
+representative, well-defined only up to nonzero squares (there is no
+canonical squarefree representative over ``K`` — see
+`_squarefree_content_rep`).
+
+# References
+- [KR21] P. Koprowski and B. Rothkegel, *The anisotropic part of a quadratic form over a number field*, arXiv:2109.04172.
+
+See also [`integral_discriminant`](@ref), [`hasse_witt_invariant`](@ref).
+"""
+function signed_discriminant(beta::GWClass)
+    M = gw_matrix(beta)
+    kind = M isa MatElem ? field_kind(base_ring(M)) : UnsupportedKind()
+    n = form_rank(beta)
+    sgn = iseven(div(n * (n - 1), 2)) ? 1 : -1
+    if kind isa RationalKind
+        return sgn * integral_discriminant(beta)
+    elseif kind isa FiniteKind
+        R = base_ring(M)
+        return R(sgn) * prod(diagonal_entries(beta); init = one(R))
+    elseif kind isa NumberFieldKind
+        return _signed_discriminant_nf(beta)
+    end
+    M isa MatElem && _check_nonsimple(base_ring(M))
+    error("signed_discriminant is only implemented over QQ, finite fields, " *
+          "and number fields")
 end
 
 # --- M2: getRelevantPrimes (QQ only) ------------------------------------------------
@@ -135,7 +222,11 @@ julia> relevant_primes(diagonal_form(QQ, (6, 7, 22)))
 See also [`hasse_witt_invariant`](@ref).
 """
 function relevant_primes(beta::GWClass)
-    gw_base_field(beta) == QQ || error("GrothendieckWittClass is not over QQ")
+    kind = field_kind(gw_base_field(beta))
+    # over a number field: 𝔓(q) of the FIXED diagonalisation held by the
+    # class's _KRForm (memo §6), as prime ideals — never recomputed per call
+    kind isa NumberFieldKind && return _relevant_primes_nf(beta)
+    kind isa RationalKind || error("GrothendieckWittClass is not over QQ")
     D = diagonal_entries(diagonal_class(beta))
     L = ZZRingElem[]
     for x in D
@@ -192,7 +283,7 @@ end
 # The list variant above stays as M2's own product so that arbitrary
 # user-supplied diagonal lists behave exactly as in M2.
 function hasse_witt_invariant(beta::GWClass, p)
-    gw_base_field(beta) == QQ ||
+    field_kind(gw_base_field(beta)) isa RationalKind ||
         error("method is only implemented over the rational numbers")
     is_prime(ZZ(p)) || error("second argument must be a prime number")
     hasse_invariant(quadratic_space(QQ, gw_matrix(beta)), ZZ(p))

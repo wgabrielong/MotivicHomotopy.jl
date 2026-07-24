@@ -87,8 +87,7 @@ end
 function _degree_base_checks(Endo::Vector{<:MPolyRingElem})
     S = parent(Endo[1])
     kk = coefficient_ring(S)
-    (kk isa QQField || (kk isa FinField && characteristic(kk) != 2)) ||
-        error(_DEGREE_FIELD_ERR)
+    _require_exact_supported(kk, _DEGREE_FIELD_ERR)
     (S, kk)
 end
 

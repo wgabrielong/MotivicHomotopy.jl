@@ -33,6 +33,12 @@ function _coerce_into(R::MPolyQuoRing, b)
     b
 end
 
+function _coerce_into(R::AbsSimpleNumField, b)
+    b isa Union{Integer, Rational, ZZRingElem, QQFieldElem} && return R(b)
+    (b isa AbsSimpleNumFieldElem && parent(b) === R) && return b
+    nothing
+end
+
 function _coerce_into(R::Field, b)   # other exact fields: element of R required
     (b isa RingElem && parent(b) === R) || return nothing
     b
