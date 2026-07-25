@@ -99,6 +99,5 @@ function _kr_algorithm_1(K::AbsSimpleNumField, S::Vector)
 
     # Step (5): the sequence 0 -> U_S -> E_S -> 2C_S -> 0 splits, so the
     # union is a basis.
-    _kr_cov_max!(:alg1_lambda_count, length(lambdas))
     vcat(sunits, lambdas)
 end

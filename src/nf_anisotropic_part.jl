@@ -41,15 +41,10 @@ function _kr_algorithm_5(beta::GWClass)
     K = gw_base_field(beta)
     d = anisotropic_dimension(beta)
     d >= 4 || error("anisotropic dimension of form is not >= 4")
-    _kr_cov_count!(:alg5_runs)
     # Step (1): non-real K — over a non-real global field every form of
     # dimension >= 5 is isotropic, so d = 4, and parity gives
     # dim_a(q ⊥ <-1>) = 3.
-    if !_is_formally_real(K)
-        _kr_cov_count!(:alg5_nonreal_runs)
-        return one(K)
-    end
-    _kr_cov_count!(:alg5_real_runs)
+    _is_formally_real(K) || return one(K)
     # Steps (2)-(3): the real embeddings and the extreme-signature index sets
     # (the η context threaded through the class's _KRForm).
     kr = _kr_form(beta)
@@ -109,7 +104,6 @@ function _kr_algorithm_6(beta::GWClass)
     _is_formally_real(K) &&
         error("Algorithm 6 requires a non-real field; use Algorithm 7")
     anisotropic_dimension(beta) == 3 || error("anisotropic dimension of form is not 3")
-    _kr_cov_count!(:alg6_runs)
     OK = maximal_order(K)
     # Step (1): S = P(q) ∪ {dyadic primes} — the class's fixed _KRForm.
     primes, exponents, targets, dn = _dim3_congruences(beta)
@@ -162,7 +156,6 @@ function _kr_algorithm_7(beta::GWClass)
     _is_formally_real(K) ||
         error("Algorithm 7 requires a formally real field; use Algorithm 6")
     anisotropic_dimension(beta) == 3 || error("anisotropic dimension of form is not 3")
-    _kr_cov_count!(:alg7_runs)
     kr = _kr_form(beta)
     # Step (1): S = P(q) ∪ {dyadic primes} = kr.S.
     # Step (2): alpha_1 — the signature signs, local square at every p in S
@@ -261,15 +254,9 @@ function _kr_algorithm_8_setup(beta::GWClass)
     # correction factor need not be trivial. Dropping it corrupts only dyadic
     # Hasse data, silently (see the padding regression test).
     w = gw_witt_index(beta)
-    _kr_cov_first!(:alg8_w_mod4, Int(w % 4))
     q = beta
     if w % 4 != 0
         q = gw_direct_sum(q, hyperbolic_form(K, 2 * (4 - w % 4)))
-        if _kr_coverage_enabled()
-            changed = any(P -> hasse_witt_invariant(beta, P) != hasse_witt_invariant(q, P),
-                          _dyadic_primes(K))
-            _kr_cov_or!(:alg8_padding_changed_dyadic_hasse, changed)
-        end
     end
     kr = _kr_form(q)
     # Step (2): the signed discriminant of the (padded) form.
@@ -296,14 +283,11 @@ end
 function _kr_algorithm_8_loop(q::GWClass, d, S::Vector, negd::Vector;
                               max_rounds::Int = 8)
     K = gw_base_field(q)
-    _kr_cov_count!(:alg8_runs)
-    _kr_cov_first!(:alg8_A_rows, length(negd))
     symcache = Dict{Tuple{AbsSimpleNumFieldElem, Int}, Int}()
     for _ in 1:max_rounds
         # Step (5a): F2-basis of E_S (Algorithm 1, FacElem end to end).
         basis = _kr_algorithm_1(K, S)
         m = length(basis)
-        _kr_cov_first!(:alg8_cols, m)
         # Steps (5b)-(5c): the right-hand side from the signatures and the
         # Hasse invariants of the padded form.
         v = Int[form_signature(q, sigma) == -2 ? 1 : 0 for sigma in negd]
@@ -336,7 +320,6 @@ function _kr_algorithm_8_loop(q::GWClass, d, S::Vector, negd::Vector;
         # sunit_group_fac_elem(S) from scratch inside Algorithm 1 — the
         # dominant cost — so the number of retries matters, not the number of
         # primes appended per retry; KR themselves append three at once in §6.
-        _kr_cov_count!(:alg8_retries)
         append!(S, _next_primes_batch(K, S, 3))
     end
     error("Algorithm 8: the F2 system stayed unsolvable after $max_rounds rounds " *

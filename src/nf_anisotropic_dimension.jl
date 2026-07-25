@@ -109,17 +109,15 @@ local_anisotropic_dimension(beta::GWClass, sigma::InfPlc) =
 function _anisotropic_dimension_nf(beta::GWClass)
     kr = _kr_form(beta)
     dims = Int[form_rank(beta) % 2]
-    correction = iseven(form_rank(beta)) && !is_square(signed_discriminant(beta))
+    if iseven(form_rank(beta)) && !is_square(signed_discriminant(beta))
+        push!(dims, 2)
+    end
     for sigma in real_places(kr.K)
         push!(dims, abs(form_signature(beta, sigma)))
     end
     for P in kr.S
         push!(dims, _local_aniso_dim_finite(kr.K, kr.diag, P))
     end
-    # decisive = the global correction RAISED the answer, i.e. this input is a
-    # blind-spot witness like <1, -(35 + 6 sqrt 34)>
-    _kr_cov_or!(:dim_correction_decisive, correction && maximum(dims) < 2)
-    correction && push!(dims, 2)
     maximum(dims)
 end
 

@@ -95,7 +95,6 @@ export GWClass, GWuClass,
 include("trace_norm.jl")
 include("arithmetic.jl")
 include("field_kind.jl")
-include("nf_coverage.jl")
 include("nf_arithmetic.jl")
 include("nf_singular_elements.jl")
 include("nf_signs.jl")

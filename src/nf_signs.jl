@@ -153,15 +153,6 @@ function _kr_algorithm_4(K::AbsSimpleNumField, pairs::Vector, etas::Vector, I, S
     # it by 2 e(p|2) per factor of 2 in t at exactly the dyadic primes, so
     # reading it earlier would reintroduce the gap the correction closes.
     ks = Int[1 + valuation(K(4), P) + valuation(alpha1, P) for P in S]
-    if _kr_coverage_enabled()
-        _kr_cov_count!(:alg4_runs)
-        # the corrected modulus is load-bearing exactly when ord_P(alpha_1) > 0
-        # somewhere in S; the dyadic case is the prime-2 hazard
-        nonunit = [P for (P, k) in zip(S, ks) if k > 1 + valuation(K(4), P)]
-        _kr_cov_or!(:alg4_alpha1_nonunit_S, !isempty(nonunit))
-        _kr_cov_or!(:alg4_alpha1_nonunit_dyadic,
-                    any(P -> minimum(P) == 2, nonunit))
-    end
 
     # Step (2): a totally positive alpha_2 = alpha_1 mod p^(k_p) (Algorithm 3),
     # hence alpha_2/alpha_1 is a local square at every p in S.
