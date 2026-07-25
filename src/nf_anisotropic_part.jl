@@ -276,6 +276,54 @@ function _kr_algorithm_8_setup(beta::GWClass)
     (q = q, d = d, S = S, negd = negd)
 end
 
+
+# The closing-prime search for step (5g): a principal prime P ∉ S, coprime
+# to d, whose generator's row pattern makes the extended system solvable.
+# For principal P, the S ∪ {P}-unit group is the S-unit group plus exactly
+# the generator's direction, so appending P helps iff the generator's
+# column c satisfies target ∈ span(columns of AB, c) — tested exactly here,
+# with symbols only, before any S-unit recomputation. Hilbert reciprocity
+# makes the symbol at P itself automatic (the full column sum and the
+# target sum are both zero), so no self-condition is needed; the assertion
+# below re-checks it. Candidates are scanned in rational-prime order,
+# deterministically; `nothing` after the bound means the caller falls back
+# to the blind batch.
+function _find_closing_prime(K::AbsSimpleNumField, S::Vector, negd::Vector, d,
+                             AB, target; max_candidates::Int = 4096)
+    OK = maximal_order(K)
+    rows = nrows(AB)
+    cache = Dict{Tuple{AbsSimpleNumFieldElem, Int}, Int}()
+    tried = 0
+    p = ZZRingElem(2)
+    while tried < max_candidates
+        for (P, _) in prime_decomposition(OK, p)
+            tried += 1
+            tried > max_candidates && return nothing
+            any(Q -> Q == P, S) && continue
+            iszero(valuation(d, P)) || continue
+            fl, y = is_principal_fac_elem(P)
+            fl || continue
+            c = zero_matrix(GF(2), rows, 1)
+            for (i, sigma) in enumerate(negd)
+                sign(y, sigma) < 0 && (c[i, 1] = 1)
+            end
+            for (i, Pi) in enumerate(S)
+                _hilbert_symbol_facelem(y, d, Pi, i, cache) == -1 &&
+                    (c[length(negd) + i, 1] = 1)
+            end
+            empty!(cache)
+            can_solve(hcat(AB, c), target; side = :right) || continue
+            # reciprocity re-check: a solution through y uses it an odd
+            # number of times, and the target at the fresh prime is trivial
+            _hilbert_symbol_facelem(y, d, P, 0, cache) == 1 ||
+                error("closing-prime reciprocity check failed at $P")
+            return P
+        end
+        p = next_prime(p)
+    end
+    nothing
+end
+
 # Step (5) of [KR21] Algorithm 8: the retry loop. Matrices A and B are
 # filled FACTOR-WISE from the FacElem representation — sign(FacElem, σ) is
 # Hecke-native odd-exponent sign multiplication, and the Hilbert symbol
@@ -316,11 +364,22 @@ function _kr_algorithm_8_loop(q::GWClass, d, S::Vector, negd::Vector;
                 error("Algorithm 8 postcondition failed: output is not anisotropic")
             return qa
         end
-        # Step (5g): enlarge S in a BATCH. Each retry recomputes
-        # sunit_group_fac_elem(S) from scratch inside Algorithm 1 — the
-        # dominant cost — so the number of retries matters, not the number of
-        # primes appended per retry; KR themselves append three at once in §6.
-        append!(S, _next_primes_batch(K, S, 3))
+        # Step (5g), with a DEVIATION from the printed step. KR enlarge S
+        # with the next primes in norm order. When K(sqrt d)/K is ramified
+        # at many primes, the symbol patterns E_S can reach form a small
+        # subgroup (genus theory), and the blind strategy needs on the
+        # order of 2^(#ramified primes) candidates before the system closes
+        # — no fixed retry bound survives that (the Q(sqrt 5) regression in
+        # the test suite stalls at |S| = 35 exactly this way). So the loop
+        # first searches for a single PRINCIPAL prime whose generator's
+        # symbol column provably closes the system (_find_closing_prime;
+        # Chebotarev guarantees one exists), and only falls back to the
+        # paper's blind batch when the bounded search fails — Lemma 5.1
+        # termination is preserved on both paths.
+        target = matrix(GF(2), rows, 1, vcat(v, wv))
+        closing = _find_closing_prime(K, S, negd, d, AB, target)
+        closing === nothing ? append!(S, _next_primes_batch(K, S, 3)) :
+            push!(S, closing)
     end
     error("Algorithm 8: the F2 system stayed unsolvable after $max_rounds rounds " *
           "(|S| = $(length(S))). Lemma 5.1 guarantees termination, so raise " *
