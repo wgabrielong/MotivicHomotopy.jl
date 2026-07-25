@@ -652,3 +652,21 @@ end
         @test is_isomorphic_form(sum_decomposition(q), q)
     end
 end
+
+@testset "Algorithm 8 closing-prime enlargement (Q(sqrt5) large-prime regression)" begin
+    # <1, -u, v, -u*v> with u = 1000003, v = 1 - 2 sqrt5: K(sqrt d)/K is
+    # ramified at eleven primes, so the blind step-(5g) enlargement can
+    # never close the F2 system inside the retry bound; the closing-prime
+    # search must. The form has anisotropic dimension 4 with signatures
+    # [0, 0], so the whole reduction chain (Algorithms 5, 7, 8) runs.
+    u = Kr5(1000003)
+    v = 1 - 2 * sr5
+    beta = diagonal_form(Kr5, (Kr5(1), -u, v, -u * v))
+    @test anisotropic_dimension(beta) == 4
+    @test form_signatures(beta) == [0, 0]
+    part = anisotropic_part(beta)
+    @test form_rank(part) == 4
+    @test gw_witt_index(beta) == 0
+    @test is_isomorphic_form(part, beta)
+    @test is_anisotropic_form(part)
+end

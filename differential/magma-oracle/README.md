@@ -54,22 +54,29 @@ rebuilds the corpus, the chunk scripts, and the simulated results
 deterministically, then runs the comparison against the simulation and
 enforces the quota.
 
-## Known findings
+## Findings (resolved)
 
-`anisotropic_part` fails in [KR21] Algorithm 8 on
+Corpus generation surfaced a form on which `anisotropic_part` failed in
+[KR21] Algorithm 8:
 
     K = Q(sqrt 5),  u = 1000003,  v = 1 - 2 sqrt 5
     q = <1, -u, v, -u*v>
 
-with "the F₂ system stayed unsolvable after 8 rounds (|S| = 35)". The
-dimension chain is correct (an independent Hecke-`hasse_invariant` referee
-agrees: dim 4 → 3 → 2, and Algorithm 8's input has dim 2 with non-square
-discriminant, so a solution exists); Hilbert symbols at the primes over
-1000003 pass reciprocity in the Hecke tier; the same shape with u = 3
-succeeds. Suspect: the E_S basis (Algorithm 1's
-`class_group` / `sunit_group_fac_elem`) with an inert prime of norm ~10¹²
-in S. The record is dropped at generation with an `@error`; any fix
-belongs on `number-fields`.
+The F₂ system stayed unsolvable through eight rounds of the blind
+smallest-norm enlargement of S (|S| = 35). Diagnosis: with K(√d)/K
+ramified at eleven primes, the symbol patterns reachable from E_S form a
+small subgroup (genus theory), so the blind strategy needs on the order
+of 2^(#ramified) candidate primes — beyond any fixed retry bound. The
+E_S basis and the dimension chain were verified sound (independent
+Hecke-`hasse_invariant` referee).
+
+Fixed by the closing-prime enlargement in step (5g) of
+`_kr_algorithm_8_loop` (`src/nf_anisotropic_part.jl`, a flagged deviation
+from the printed step): a principal prime whose generator's sign/symbol
+column provably closes the system is searched for with symbols alone
+before the blind batch is used as fallback. The reproducer is pinned in
+`test/test_number_fields_aniso.jl` and its record now generates
+normally; the fix lives on `number-fields` and is carried here.
 
 ## Covered functions and exclusions
 
