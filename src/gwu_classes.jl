@@ -26,6 +26,13 @@ this verification is not possible; any nonzero scalar is accepted and a
 warning is printed when it differs from the determinant — the user must check
 the square-class condition by hand.
 
+For float Gram matrices, `certify = true` makes every decision from the
+entries read exactly as rationals: nondegeneracy and the sign comparison of
+scalar and determinant (over ``\\mathbb{R}``) use the exact determinant, and
+when the scalar is omitted it is the exact determinant correctly rounded —
+refusing with an error when that rounding would reach zero or infinity. On
+exact base fields the keyword is a no-op.
+
 Accessors: [`gw_matrix`](@ref), [`gw_scalar`](@ref), [`gw_algebra`](@ref),
 [`gw_base_field`](@ref), and [`stable_part`](@ref) for the underlying
 ``\\text{GW}(k)``-class. Operations: [`gw_direct_sum`](@ref) (alias `+`) and
@@ -77,7 +84,7 @@ function _is_unit_scalar(c::MPolyQuoRingElem)
 end
 _is_unit_scalar(c::Union{Float64, ComplexF64}) = !iszero(c)
 
-function _is_well_defined_gwu(M::MatElem, c)
+function _is_well_defined_gwu(M::MatElem, c; certify::Bool = false)
     _is_unit_scalar(c) || return false
     R = base_ring(M)
     d = det(M)
@@ -101,24 +108,33 @@ function _is_well_defined_gwu(M::MatElem, c)
     _is_well_defined_gw(M)
 end
 
-function _is_well_defined_gwu(M::Matrix{Float64}, c::Float64)
+function _is_well_defined_gwu(M::Matrix{Float64}, c::Float64;
+                              certify::Bool = false)
     iszero(c) && return false
+    if certify
+        # certify=true: M2's "signs must agree over RR" enforced against the
+        # exact determinant of M over QQ, beyond M2. The sign of the float c
+        # is already exact: c is a nonzero rational read exactly.
+        Int(sign(c)) == _certified_det_sign(M) || return false
+        return _is_well_defined_gw(M; certify = true)
+    end
     sign(c) == sign(LinearAlgebra.det(M)) || return false   # M2: signs must agree over RR
     _is_well_defined_gw(M)
 end
 
-function _is_well_defined_gwu(M::Matrix{ComplexF64}, c::ComplexF64)
+function _is_well_defined_gwu(M::Matrix{ComplexF64}, c::ComplexF64;
+                              certify::Bool = false)
     iszero(c) && return false                               # M2: scalar must be a unit
-    _is_well_defined_gw(M)
+    _is_well_defined_gw(M; certify = certify)
 end
 
 const _GWU_ERR = "makeGWuClass called on a pair that does not produce a " *
     "well-defined element of the unstable Grothendieck-Witt group."
 
-function _make_gwu(M, b)
+function _make_gwu(M, b; certify::Bool = false)
     c = _coerce_scalar(M, b)
     c === nothing && error(_GWU_ERR)
-    _is_well_defined_gwu(M, c) || error(_GWU_ERR)
+    _is_well_defined_gwu(M, c; certify = certify) || error(_GWU_ERR)
     GWuClass{typeof(M), typeof(c)}(M, c, Dict{Symbol, Any}())
 end
 
@@ -127,16 +143,47 @@ end
 _gram_det(M::MatElem) = det(M)
 _gram_det(M::FloatGram) = LinearAlgebra.det(M)
 
-GWuClass(M::MatElem) = _make_gwu(M, det(M))
-GWuClass(M::MatElem, b) = _make_gwu(M, b)
-GWuClass(M::AbstractMatrix{<:Real}) =
-    (Mf = Matrix{Float64}(M); _make_gwu(Mf, LinearAlgebra.det(Mf)))
-GWuClass(M::AbstractMatrix{<:Real}, b) = _make_gwu(Matrix{Float64}(M), b)
-GWuClass(M::AbstractMatrix{<:Complex}) =
-    (Mf = Matrix{ComplexF64}(M); _make_gwu(Mf, LinearAlgebra.det(Mf)))
-GWuClass(M::AbstractMatrix{<:Complex}, b) = _make_gwu(Matrix{ComplexF64}(M), b)
-GWuClass(beta::GWClass) = _make_gwu(beta.matrix, _gram_det(beta.matrix))
-GWuClass(beta::GWClass, b) = _make_gwu(beta.matrix, b)
+# The default scalar of the one-argument float constructors under certify: the
+# exact determinant of M over QQ / QQ(i), correctly rounded back to a float —
+# so the stored scalar is the nearest float to the true determinant, not the
+# LU determinant with its rounding error. Refuses (rather than stores wrong)
+# when the exact determinant rounds to zero or infinity.
+function _certified_default_scalar(M::Matrix{Float64})
+    scalar = _round_to_f64(det(_exact_qq_gram(M)))
+    (iszero(scalar) || !isfinite(scalar)) && error(_CERT_UNREPRESENTABLE_ERR)
+    scalar
+end
+
+function _certified_default_scalar(M::Matrix{ComplexF64})
+    scalar = _round_to_c64(det(_exact_qi_gram(M)))
+    (iszero(scalar) || !isfinite(scalar)) && error(_CERT_UNREPRESENTABLE_ERR)
+    scalar
+end
+
+GWuClass(M::MatElem; certify::Bool = false) = _make_gwu(M, det(M))
+GWuClass(M::MatElem, b; certify::Bool = false) = _make_gwu(M, b)
+function GWuClass(M::AbstractMatrix{<:Real}; certify::Bool = false)
+    Mf = Matrix{Float64}(M)
+    scalar = certify ? _certified_default_scalar(Mf) : LinearAlgebra.det(Mf)
+    _make_gwu(Mf, scalar; certify = certify)
+end
+GWuClass(M::AbstractMatrix{<:Real}, b; certify::Bool = false) =
+    _make_gwu(Matrix{Float64}(M), b; certify = certify)
+function GWuClass(M::AbstractMatrix{<:Complex}; certify::Bool = false)
+    Mf = Matrix{ComplexF64}(M)
+    scalar = certify ? _certified_default_scalar(Mf) : LinearAlgebra.det(Mf)
+    _make_gwu(Mf, scalar; certify = certify)
+end
+GWuClass(M::AbstractMatrix{<:Complex}, b; certify::Bool = false) =
+    _make_gwu(Matrix{ComplexF64}(M), b; certify = certify)
+function GWuClass(beta::GWClass; certify::Bool = false)
+    M = beta.matrix
+    scalar = certify && M isa FloatGram ? _certified_default_scalar(M) :
+        _gram_det(M)
+    _make_gwu(M, scalar; certify = certify)
+end
+GWuClass(beta::GWClass, b; certify::Bool = false) =
+    _make_gwu(beta.matrix, b; certify = certify)
 
 # --- accessors (M2: getMatrix / getScalar / getAlgebra / getBaseField / getGWClass)
 

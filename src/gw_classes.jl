@@ -34,6 +34,11 @@ Equality `==` compares Gram matrices literally (same base ring, same entries).
 Mathematical equality in ``\\text{GW}(k)`` is tested with
 [`is_isomorphic_form`](@ref).
 
+For float Gram matrices, `GWClass(M; certify = true)` decides nondegeneracy
+by the exact determinant of `M` read entrywise as exact rationals, instead of
+the default floating-point determinant; on exact base fields the keyword is a
+no-op.
+
 The Gram matrix, coefficient algebra, and base field are recovered with
 [`gw_matrix`](@ref), [`gw_algebra`](@ref), and [`gw_base_field`](@ref); a
 diagonal representative with [`diagonal_class`](@ref). Further invariants:
@@ -72,7 +77,7 @@ end
 _ring_char(R) = characteristic(R)
 _ring_char(R::MPolyQuoRing) = characteristic(coefficient_ring(base_ring(R)))
 
-function _is_well_defined_gw(M::MatElem)
+function _is_well_defined_gw(M::MatElem; certify::Bool = false)
     _is_symmetric_square(M) || return false
     iszero(det(M)) && return false
     R = base_ring(M)
@@ -81,7 +86,16 @@ function _is_well_defined_gw(M::MatElem)
     true
 end
 
-function _is_well_defined_gw(M::FloatGram)
+function _is_well_defined_gw(M::FloatGram; certify::Bool = false)
+    # certify=true: nondegeneracy decided by the exact determinant over
+    # QQ / QQ(i), beyond M2; default branch unchanged. Non-finite entries are
+    # refused loudly before any other test — NaN breaks even the symmetry
+    # comparison (NaN != NaN), and a silent `false` would misreport the reason.
+    if certify
+        all(isfinite, M) || error(_CERT_NONFINITE_ERR)
+        _is_symmetric_square(M) || return false
+        return _certified_det_nonzero(M)
+    end
     _is_symmetric_square(M) || return false
     !iszero(LinearAlgebra.det(M))
 end
@@ -91,20 +105,20 @@ const _GW_ERR = "makeGWClass called on a matrix that does not represent a " *
 
 # --- constructors (M2: makeGWClass) --------------------------------------------
 
-function GWClass(M::MatElem)
+function GWClass(M::MatElem; certify::Bool = false)
     _is_well_defined_gw(M) || error(_GW_ERR)
     GWClass{typeof(M)}(M, Dict{Symbol, Any}())
 end
 
-function GWClass(M::AbstractMatrix{<:Real})
+function GWClass(M::AbstractMatrix{<:Real}; certify::Bool = false)
     Mf = Matrix{Float64}(M)
-    _is_well_defined_gw(Mf) || error(_GW_ERR)
+    _is_well_defined_gw(Mf; certify = certify) || error(_GW_ERR)
     GWClass{Matrix{Float64}}(Mf, Dict{Symbol, Any}())
 end
 
-function GWClass(M::AbstractMatrix{<:Complex})
+function GWClass(M::AbstractMatrix{<:Complex}; certify::Bool = false)
     Mf = Matrix{ComplexF64}(M)
-    _is_well_defined_gw(Mf) || error(_GW_ERR)
+    _is_well_defined_gw(Mf; certify = certify) || error(_GW_ERR)
     GWClass{Matrix{ComplexF64}}(Mf, Dict{Symbol, Any}())
 end
 

@@ -5,12 +5,18 @@
 # On a class: the matrix size. On a raw matrix: the actual rank (drops degeneracy).
 
 """
-    form_rank(beta::GWClass)
-    form_rank(M)
+    form_rank(beta::GWClass; certify = false)
+    form_rank(M; certify = false)
 
 The rank of a symmetric bilinear form. On a [`GWClass`](@ref) (which is
 nondegenerate by construction) this is the size of the Gram matrix; on a raw
 matrix it is the matrix rank, so degenerate directions are not counted.
+
+With `certify = true` a float Gram matrix is read exactly (each entry as the
+dyadic rational it is) and the rank is computed exactly over ``\\mathbb{Q}``
+or ``\\mathbb{Q}(i)`` instead of by the default floating-point SVD; on exact
+base fields the keyword is accepted and is a no-op. See the manual for the
+certification semantics.
 
 # Examples
 ```julia-repl
@@ -20,18 +26,26 @@ julia> form_rank(diagonal_form(QQ, (3, 5, 7, 11)))
 
 See also [`form_signature`](@ref), [`anisotropic_dimension`](@ref).
 """
-form_rank(beta::GWClass) = _n_of(beta.matrix)
-form_rank(M::MatElem) = nrows(M) == 0 ? 0 : rank(M)
-form_rank(M::FloatGram) = size(M, 1) == 0 ? 0 : LinearAlgebra.rank(M)
+form_rank(beta::GWClass; certify::Bool = false) = _n_of(beta.matrix)
+form_rank(M::MatElem; certify::Bool = false) = nrows(M) == 0 ? 0 : rank(M)
+# certify=true: exact rank over QQ / QQ(i), beyond M2; default branch unchanged
+form_rank(M::FloatGram; certify::Bool = false) =
+    certify ? _certified_rank(M) :
+    (size(M, 1) == 0 ? 0 : LinearAlgebra.rank(M))
 
 _n_of(M::MatElem) = nrows(M)
 _n_of(M::FloatGram) = size(M, 1)
 
 # --- M2: countPosDiagEntries / countNegDiagEntries (internal; QQ and RR only) ------
 
-function _pos_neg_diag_counts(M::Union{MatElem, Matrix{Float64}})
+function _pos_neg_diag_counts(M::Union{MatElem, Matrix{Float64}};
+                              certify::Bool = false)
     M isa MatElem && !(field_kind(base_ring(M)) isa RationalKind) &&
         error("Only implemented over QQ and RR")
+    # certify=true: exact counts over QQ, beyond M2; a MatElem input is already
+    # exact, so only the float branch changes. The certified helper lifts and
+    # rediagonalizes M itself, so no float diagonalization enters the counts.
+    certify && M isa Matrix{Float64} && return _certified_pos_neg_counts(M)
     _is_symmetric_square(M) || error("Matrix is not symmetric")
     A = _is_diag(M) ? M : diagonalize_via_congruence(M)
     pos = 0
@@ -42,7 +56,8 @@ function _pos_neg_diag_counts(M::Union{MatElem, Matrix{Float64}})
     end
     (pos, neg)
 end
-_pos_neg_diag_counts(::Any) = error("Only implemented over QQ and RR")
+_pos_neg_diag_counts(::Any; certify::Bool = false) =
+    error("Only implemented over QQ and RR")
 
 # --- M2: getSignature (QQ and RR only) ----------------------------------------------
 # Over QQ, reuses Hecke's signature_tuple on the quadratic space (verified identical
@@ -50,12 +65,17 @@ _pos_neg_diag_counts(::Any) = error("Only implemented over QQ and RR")
 # M2's diagonal counts.
 
 """
-    form_signature(beta::GWClass)
+    form_signature(beta::GWClass; certify = false)
 
 The signature of a symmetric bilinear form over ``\\mathbb{Q}`` or ``\\mathbb{R}``: after diagonalizing,
 the number of positive diagonal entries minus the number of negative ones.
 Together with the rank it classifies forms over ``\\mathbb{R}``; over ``\\mathbb{Q}`` it is one of the
 invariants entering [`is_isomorphic_form`](@ref).
+
+With `certify = true` a float Gram matrix is read exactly and the diagonal
+sign counts are computed over ``\\mathbb{Q}`` instead of in floating point;
+over ``\\mathbb{Q}`` itself the keyword is accepted and is a no-op (the
+computation is already exact).
 
 # Examples
 ```julia-repl
@@ -69,13 +89,13 @@ julia> form_signature(diagonal_form(QQ, (1, -1, 1)))
 See also [`form_rank`](@ref), [`integral_discriminant`](@ref),
 [`is_isomorphic_form`](@ref).
 """
-function form_signature(beta::GWClass)
+function form_signature(beta::GWClass; certify::Bool = false)
     M = gw_matrix(beta)
     if M isa MatElem && field_kind(base_ring(M)) isa RationalKind
         st = signature_tuple(quadratic_space(QQ, M))   # (pos, zero, neg)
         return st[1] - st[3]
     end
-    pos, neg = _pos_neg_diag_counts(M)
+    pos, neg = _pos_neg_diag_counts(M; certify = certify)
     pos - neg
 end
 

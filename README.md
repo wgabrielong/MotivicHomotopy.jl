@@ -76,11 +76,15 @@ sum_decomposition_string(GWClass(QQ[1 2 3; 2 4 5; 3 5 6]))       # "H + <1>"
 ```
 
 The unstable degrees compute numerically over ℂ when given
-`HomotopyContinuation` expressions:
+`HomotopyContinuation` expressions; with `certify = true` they instead
+compute exactly over ℚ(i) from the coefficients read as exact Gaussian
+rationals, and error rather than guess when the exact and tolerance readings
+disagree:
 
 ```julia
 import HomotopyContinuation; HomotopyContinuation.@var x
-global_unstable_A1_degree((x-1)*(x-2)*(x-3), (x-1)*(x-4))
+global_unstable_A1_degree((x-1)*(x-2)*(x-3), (x-1)*(x-4))                 # scalar -1.9999999999999987…
+global_unstable_A1_degree((x-1)*(x-2)*(x-3), (x-1)*(x-4); certify=true)   # scalar -2.0 exactly
 ```
 
 ## Base fields
@@ -90,12 +94,18 @@ Which arithmetic runs is determined by the base field:
 | Base field | Computation |
 |---|---|
 | ℚ and 𝔽_q (odd q) | exact, via Oscar |
-| ℝ | compute over ℚ and base-change the resulting Gram matrix (`Matrix{Float64}` represents forms over ℝ) |
-| ℂ | stable degrees are rank-only and come from the exact computation; unstable degrees are computed numerically via HomotopyContinuation.jl |
+| ℝ | compute over ℚ and base-change the resulting Gram matrix (`Matrix{Float64}` represents forms over ℝ); form-layer decisions accept `certify=true` for exact answers from the entries read as exact rationals |
+| ℂ | stable degrees are rank-only and come from the exact computation; unstable degrees are computed numerically via HomotopyContinuation.jl, or exactly over ℚ(i) with `certify=true` |
 
 See the [documentation](https://JuliaMotivicHomotopy.github.io/MotivicHomotopy.jl/dev/)
 for the full API reference, conventions (e.g. `==` is literal Gram-matrix
 equality; mathematical equality is `is_isomorphic_form`), and version history.
+To build it locally, run `julia --project=docs docs/make.jl` from the
+repository root (first time: precede it with
+`julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'`)
+and open `docs/build/index.html`. The design narrative of the certified
+(`certify = true`) computation paths is in
+[docs/dev/certified-numerics.md](docs/dev/certified-numerics.md).
 
 ## Relation to the Macaulay2 package
 

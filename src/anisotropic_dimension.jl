@@ -72,12 +72,15 @@ end
 
 # M2: getAnisotropicDimension, per field
 """
-    anisotropic_dimension(beta::GWClass)
-    anisotropic_dimension(A)
+    anisotropic_dimension(beta::GWClass; certify = false)
+    anisotropic_dimension(A; certify = false)
 
 The anisotropic dimension of a symmetric bilinear form over ``\\mathbb{Q}``, a number
 field, ``\\mathbb{R}``, ``\\mathbb{C}``, or a
-finite field of odd characteristic. By the Witt decomposition theorem any
+finite field of odd characteristic. With `certify = true` a float Gram matrix
+is read exactly and the underlying sign counts (over ``\\mathbb{R}``) or rank
+(over ``\\mathbb{C}``) are computed exactly over ``\\mathbb{Q}`` or
+``\\mathbb{Q}(i)``; on exact base fields the keyword is a no-op. By the Witt decomposition theorem any
 nondegenerate form decomposes uniquely as ``β ≅ n·\\mathbb{H} ⊕ β_a`` with ``β_a``
 anisotropic; the anisotropic dimension is the rank of ``β_a``.
 
@@ -105,7 +108,7 @@ julia> anisotropic_dimension(diagonal_form(QQ, (1, -1, 2)))
 See also [`gw_witt_index`](@ref), [`anisotropic_part`](@ref),
 [`is_anisotropic_form`](@ref).
 """
-function anisotropic_dimension(A::MatElem)
+function anisotropic_dimension(A::MatElem; certify::Bool = false)
     R = base_ring(A)
     _require_form_supported(R, _UNSUPPORTED_FIELD_ERR)
     _is_symmetric_square(A) || error("Matrix is not symmetric")
@@ -130,27 +133,33 @@ end
 
 _anisotropic_dimension(::FieldKind, ::MatElem) = error(_UNSUPPORTED_FIELD_ERR)
 
-function anisotropic_dimension(A::Matrix{Float64})
+function anisotropic_dimension(A::Matrix{Float64}; certify::Bool = false)
     _is_symmetric_square(A) || error("Matrix is not symmetric")
-    pos, neg = _pos_neg_diag_counts(diagonalize_via_congruence(A))
+    # certify=true: exact counts over QQ from the input itself, beyond M2; the
+    # default keeps M2's float pre-diagonalization, so certification never
+    # inherits a float pivot decision.
+    pos, neg = certify ? _certified_pos_neg_counts(A) :
+        _pos_neg_diag_counts(diagonalize_via_congruence(A))
     abs(pos - neg)
 end
 
-function anisotropic_dimension(A::Matrix{ComplexF64})
+function anisotropic_dimension(A::Matrix{ComplexF64}; certify::Bool = false)
     _is_symmetric_square(A) || error("Matrix is not symmetric")
-    form_rank(A) % 2
+    form_rank(A; certify = certify) % 2
 end
 
-anisotropic_dimension(alpha::GWClass) = anisotropic_dimension(gw_matrix(alpha))
+anisotropic_dimension(alpha::GWClass; certify::Bool = false) =
+    anisotropic_dimension(gw_matrix(alpha); certify = certify)
 
 # M2: getWittIndex — (rank - anisotropic dimension)/2
 """
-    gw_witt_index(beta::GWClass)
+    gw_witt_index(beta::GWClass; certify = false)
 
 The Witt index of a form over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd
 characteristic: the number ``n`` of hyperbolic summands in the Witt
 decomposition ``β ≅ n·\\mathbb{H} ⊕ β_a`` ([L05, I.4.3]), computed as
-(rank − anisotropic dimension)/2.
+(rank − anisotropic dimension)/2. `certify` is forwarded to
+[`anisotropic_dimension`](@ref).
 
 The name carries the `gw_` prefix because Oscar exports `witt_index`.
 
@@ -165,5 +174,5 @@ julia> gw_witt_index(diagonal_form(QQ, (1, -1, 2)))
 
 See also [`anisotropic_dimension`](@ref), [`sum_decomposition`](@ref).
 """
-gw_witt_index(alpha::GWClass) =
-    div(form_rank(alpha) - anisotropic_dimension(alpha), 2)
+gw_witt_index(alpha::GWClass; certify::Bool = false) =
+    div(form_rank(alpha) - anisotropic_dimension(alpha; certify = certify), 2)

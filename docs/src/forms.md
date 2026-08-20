@@ -12,7 +12,10 @@ Supported base fields: ``\mathbb{Q}``, finite fields of odd characteristic,
 any absolute simple number field (`AbsSimpleNumField` — the fields produced
 by `quadratic_field`, `number_field(f)`, and
 `Hecke.rationals_as_number_field()`), and ``\mathbb{R}`` / ``\mathbb{C}``
-via `Matrix{Float64}` / `Matrix{ComplexF64}` Gram matrices. Non-simple
+via `Matrix{Float64}` / `Matrix{ComplexF64}` Gram matrices. Decisions on
+float Gram matrices can be made exactly from the entries read as exact
+rationals with the opt-in `certify = true` keyword (see *Certified
+computation* on the manual's front page). Non-simple
 fields (`number_field([f, g])`) are rejected with an error naming the fix:
 convert with `simple_extension(K)` first.
 

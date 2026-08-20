@@ -59,6 +59,11 @@ algebra dimension (a discrete invariant from the exact computation); only the
 *unstable* degrees, which carry a ``k^×``-scalar, use numerical
 (HomotopyContinuation) computation over ``\\mathbb{C}``. Over ``\\mathbb{R}`` the degree functions direct
 the user to compute over ``\\mathbb{Q}`` and base-change the result.
+Functions that decide from float input accept an opt-in `certify = true`
+keyword: the floats are read as the exact (Gaussian) rationals they are and
+every discrete decision is computed exactly over ``\\mathbb{Q}`` or
+``\\mathbb{Q}(i)``, erroring rather than guessing when a faithful answer
+cannot be returned — see the manual's *Certified computation* section.
 
 This package is a Julia port of the Macaulay2 package `A1BrouwerDegrees`
 (v2.0); v1.1 is published in the Journal of Software for Algebra and Geometry
@@ -101,6 +106,9 @@ include("nf_signs.jl")
 include("gw_classes.jl")
 include("gwu_classes.jl")
 include("matrix_methods.jl")
+# After gw_classes.jl (FloatGram) and matrix_methods.jl (the exact congruence
+# elimination it reuses): the certified (certify = true) float decisions.
+include("certified.jl")
 include("simplified_representatives.jl")
 include("building_forms.jl")
 include("hilbert_symbols.jl")

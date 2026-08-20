@@ -150,8 +150,8 @@ end
 # --- M2: getAnisotropicPart, per field ---------------------------------------------
 
 """
-    anisotropic_part(beta::GWClass)
-    anisotropic_part(A)
+    anisotropic_part(beta::GWClass; certify = false)
+    anisotropic_part(A; certify = false)
 
 The anisotropic part of a symmetric bilinear form over ``\\mathbb{Q}``, a number field,
 ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd characteristic: the (unique up to
@@ -164,7 +164,9 @@ entrywise-different output, so compare results with
 [`is_isomorphic_form`](@ref), never with `==`.
 
 Over ``\\mathbb{C}``, ``\\mathbb{R}``, and finite fields this is a short computation from the rank,
-signature, or discriminant. Over ``\\mathbb{Q}`` it uses the number-field algorithms of
+signature, or discriminant; with `certify = true` a float Gram matrix is read
+exactly and that rank or signature is computed exactly over ``\\mathbb{Q}`` or
+``\\mathbb{Q}(i)`` (on exact base fields the keyword is a no-op). Over ``\\mathbb{Q}`` it uses the number-field algorithms of
 Koprowski–Rothkegel [KR23]: ranks ≥ 4 are peeled off by signs of the
 signature, rank 3 via a CRT-constructed splitting element, and the rank-2
 base case via a Hilbert-symbol exponent system solved over GF(2).
@@ -182,7 +184,7 @@ julia> anisotropic_part(diagonal_form(QQ, (3, -3, 2, 5, 1, -9)))
 See also [`anisotropic_dimension`](@ref), [`gw_witt_index`](@ref),
 [`sum_decomposition`](@ref).
 """
-function anisotropic_part(A::MatElem)
+function anisotropic_part(A::MatElem; certify::Bool = false)
     R = base_ring(A)
     _require_form_supported(R, _UNSUPPORTED_FIELD_ERR)
     _is_symmetric_square(A) || error("Underlying matrix is not symmetric")
@@ -226,21 +228,25 @@ end
 
 _anisotropic_part(::FieldKind, ::MatElem) = error(_UNSUPPORTED_FIELD_ERR)
 
-function anisotropic_part(A::Matrix{Float64})
+function anisotropic_part(A::Matrix{Float64}; certify::Bool = false)
     _is_symmetric_square(A) || error("Underlying matrix is not symmetric")
-    pos, neg = _pos_neg_diag_counts(diagonalize_via_congruence(A))
+    # certify=true: exact counts over QQ from the input itself, beyond M2; the
+    # default keeps M2's float pre-diagonalization.
+    pos, neg = certify ? _certified_pos_neg_counts(A) :
+        _pos_neg_diag_counts(diagonalize_via_congruence(A))
     pos > neg && return Matrix{Float64}(LinearAlgebra.I, pos - neg, pos - neg)
     pos < neg && return -Matrix{Float64}(LinearAlgebra.I, neg - pos, neg - pos)
     zeros(Float64, 0, 0)
 end
 
-function anisotropic_part(A::Matrix{ComplexF64})
+function anisotropic_part(A::Matrix{ComplexF64}; certify::Bool = false)
     _is_symmetric_square(A) || error("Underlying matrix is not symmetric")
-    anisotropic_dimension(A) == 0 ? zeros(ComplexF64, 0, 0) :
+    anisotropic_dimension(A; certify = certify) == 0 ? zeros(ComplexF64, 0, 0) :
         ComplexF64[1.0 + 0.0im;;]
 end
 
-anisotropic_part(alpha::GWClass) = GWClass(anisotropic_part(gw_matrix(alpha)))
+anisotropic_part(alpha::GWClass; certify::Bool = false) =
+    GWClass(anisotropic_part(gw_matrix(alpha); certify = certify))
 
 # --- M2 element printing for decomposition strings ---------------------------------
 # M2 prints fp elements with balanced representatives (8 mod 13 -> "-5"), rationals

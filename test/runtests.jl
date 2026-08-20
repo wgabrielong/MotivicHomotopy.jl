@@ -12,4 +12,5 @@ using Test
     include("test_number_fields_oracle.jl")
     include("test_ring_ops.jl")
     include("test_numerical.jl")
+    include("test_certified.jl")
 end

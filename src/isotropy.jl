@@ -3,13 +3,14 @@
 # the pair is kept symmetric.
 
 """
-    is_anisotropic_form(beta::GWClass)
-    is_anisotropic_form(A)
+    is_anisotropic_form(beta::GWClass; certify = false)
+    is_anisotropic_form(A; certify = false)
 
 Whether a symmetric bilinear form over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd
 characteristic is anisotropic, i.e. has no nonzero vector ``v`` with
 ``β(v, v) = 0``. Computed as the statement that the anisotropic dimension
-equals the dimension of the form.
+equals the dimension of the form. `certify` is forwarded to
+[`anisotropic_dimension`](@ref).
 
 What this takes per field: over ``\\mathbb{C}`` only rank-one forms are anisotropic; over
 ``\\mathbb{R}`` a form is anisotropic iff its diagonal entries are all positive or all
@@ -38,21 +39,24 @@ false
 See also [`is_isotropic_form`](@ref), [`anisotropic_dimension`](@ref),
 [`anisotropic_part`](@ref).
 """
-function is_anisotropic_form(A::Union{MatElem, Matrix{Float64}, Matrix{ComplexF64}})
+function is_anisotropic_form(A::Union{MatElem, Matrix{Float64}, Matrix{ComplexF64}};
+                             certify::Bool = false)
     if A isa MatElem
         _require_form_supported(base_ring(A), _UNSUPPORTED_FIELD_ERR)
     end
-    _n_of(A) == anisotropic_dimension(A)
+    _n_of(A) == anisotropic_dimension(A; certify = certify)
 end
-is_anisotropic_form(alpha::GWClass) = is_anisotropic_form(gw_matrix(alpha))
+is_anisotropic_form(alpha::GWClass; certify::Bool = false) =
+    is_anisotropic_form(gw_matrix(alpha); certify = certify)
 
 """
-    is_isotropic_form(beta::GWClass)
-    is_isotropic_form(A)
+    is_isotropic_form(beta::GWClass; certify = false)
+    is_isotropic_form(A; certify = false)
 
 Whether a symmetric bilinear form over ``\\mathbb{Q}``, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd
 characteristic is isotropic — the negation of
-[`is_anisotropic_form`](@ref); see there for the per-field criteria.
+[`is_anisotropic_form`](@ref); see there for the per-field criteria and the
+`certify` keyword.
 
 # Examples
 ```julia-repl
@@ -65,6 +69,8 @@ false
 
 See also [`gw_witt_index`](@ref), [`anisotropic_dimension`](@ref).
 """
-is_isotropic_form(A::Union{MatElem, Matrix{Float64}, Matrix{ComplexF64}}) =
-    !is_anisotropic_form(A)
-is_isotropic_form(alpha::GWClass) = !is_anisotropic_form(alpha)
+is_isotropic_form(A::Union{MatElem, Matrix{Float64}, Matrix{ComplexF64}};
+                  certify::Bool = false) =
+    !is_anisotropic_form(A; certify = certify)
+is_isotropic_form(alpha::GWClass; certify::Bool = false) =
+    !is_anisotropic_form(alpha; certify = certify)

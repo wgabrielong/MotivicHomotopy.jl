@@ -43,7 +43,7 @@ function _same_order_transfer(k1::FinField, x::FinFieldElem)
 end
 
 """
-    is_isomorphic_form(alpha, beta; linear_tolerance = 1e-6)
+    is_isomorphic_form(alpha, beta; linear_tolerance = 1e-6, certify = false)
 
 Whether two Grothendieck–Witt classes (or unstable classes, or raw symmetric
 matrices) over ``\\mathbb{Q}``, a number field, ``\\mathbb{R}``, ``\\mathbb{C}``, or a finite field of odd
@@ -74,6 +74,15 @@ number fields, and
 finite fields the scalars must agree exactly; over ``\\mathbb{R}`` and ``\\mathbb{C}`` they are
 considered equal when the absolute value of their difference is below
 `linear_tolerance` (default `1e-6`).
+
+With `certify = true` the float (``\\mathbb{R}``/``\\mathbb{C}``) Gram-matrix
+comparisons — sign counts over ``\\mathbb{R}``, ranks over ``\\mathbb{C}`` — are
+computed exactly from the entries read as exact rationals; on exact base
+fields the keyword is a no-op. The unstable ``k^×``-scalar comparison over
+``\\mathbb{R}``/``\\mathbb{C}`` is **not** certified: it stays a
+`linear_tolerance` comparison even under `certify`, because scalars produced
+by float computation carry rounding drift, and exact equality of two rounded
+values would declare mathematically equal classes distinct.
 
 # Examples
 ```julia-repl
@@ -109,7 +118,8 @@ false
 See also [`form_rank`](@ref), [`form_signature`](@ref),
 [`integral_discriminant`](@ref), [`hasse_witt_invariant`](@ref).
 """
-function is_isomorphic_form(A::MatElem, B::MatElem; linear_tolerance::Real = 1e-6)
+function is_isomorphic_form(A::MatElem, B::MatElem; linear_tolerance::Real = 1e-6,
+                            certify::Bool = false)
     k1, k2 = base_ring(A), base_ring(B)
     _require_form_supported(k1, _UNSUPPORTED_FIELD_ERR)
     _require_form_supported(k2, _UNSUPPORTED_FIELD_ERR)
@@ -135,39 +145,49 @@ function is_isomorphic_form(A::MatElem, B::MatElem; linear_tolerance::Real = 1e-
 end
 
 function is_isomorphic_form(A::Matrix{Float64}, B::Matrix{Float64};
-                            linear_tolerance::Real = 1e-6)
+                            linear_tolerance::Real = 1e-6, certify::Bool = false)
     _is_symmetric_square(A) || error(_NOT_SYMMETRIC_ERR)
     _is_symmetric_square(B) || error(_NOT_SYMMETRIC_ERR)
     size(A, 1) == size(B, 1) || return false
+    # certify=true: exact counts over QQ, beyond M2; default branch unchanged
+    certify && return _certified_pos_neg_counts(A) == _certified_pos_neg_counts(B)
     _pos_neg_diag_counts(diagonalize_via_congruence(A)) ==
         _pos_neg_diag_counts(diagonalize_via_congruence(B))
 end
 
 function is_isomorphic_form(A::Matrix{ComplexF64}, B::Matrix{ComplexF64};
-                            linear_tolerance::Real = 1e-6)
+                            linear_tolerance::Real = 1e-6, certify::Bool = false)
     _is_symmetric_square(A) || error(_NOT_SYMMETRIC_ERR)
     _is_symmetric_square(B) || error(_NOT_SYMMETRIC_ERR)
-    size(A, 1) == size(B, 1) && form_rank(A) == form_rank(B)
+    size(A, 1) == size(B, 1) &&
+        form_rank(A; certify = certify) == form_rank(B; certify = certify)
 end
 
 # mixed backends = mixed base fields
 is_isomorphic_form(::Union{MatElem, FloatGram}, ::Union{MatElem, FloatGram};
-                   linear_tolerance::Real = 1e-6) = error(_DIFFERENT_FIELDS_ERR)
+                   linear_tolerance::Real = 1e-6, certify::Bool = false) =
+    error(_DIFFERENT_FIELDS_ERR)
 
-is_isomorphic_form(alpha::GWClass, beta::GWClass; linear_tolerance::Real = 1e-6) =
-    is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta))
+is_isomorphic_form(alpha::GWClass, beta::GWClass; linear_tolerance::Real = 1e-6,
+                   certify::Bool = false) =
+    is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta); certify = certify)
 
 # M2: isIsomorphicForm for unstable classes — stable parts isomorphic AND the
 # kx-factors equal (exactly over QQ/GF; within linear_tolerance over RR/CC).
 function is_isomorphic_form(alpha::GWuClass, beta::GWuClass;
-                            linear_tolerance::Real = 1e-6)
+                            linear_tolerance::Real = 1e-6, certify::Bool = false)
     linear_tolerance > 0 || error("linearTolerance must be a positive number")
     r1, r2 = gw_scalar(alpha), gw_scalar(beta)
     _scalar_field_supported(r1) || error(_UNSUPPORTED_FIELD_ERR)
     _scalar_field_supported(r2) || error(_UNSUPPORTED_FIELD_ERR)
     if (r1 isa Float64 && r2 isa Float64) || (r1 isa ComplexF64 && r2 isa ComplexF64)
+        # certify governs the stable-part comparison only: two float scalars
+        # each carry rounding drift from however they were produced, so exact
+        # equality would declare mathematically equal classes distinct — the
+        # tolerance comparison is retained even under certify (documented).
         return abs(r1 - r2) < linear_tolerance &&
-            is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta))
+            is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta);
+                               certify = certify)
     elseif r1 isa QQFieldElem && r2 isa QQFieldElem
         return is_isomorphic_form(gw_matrix(alpha), gw_matrix(beta)) && r1 == r2
     elseif r1 isa FinFieldElem && r2 isa FinFieldElem &&

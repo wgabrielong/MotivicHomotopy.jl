@@ -113,6 +113,16 @@ two `HomotopyContinuation` expressions `f`, `g`. Roots of `f` and `g` closer
 than the `linear_tolerance` keyword (default `1e-6`) are treated as a common
 factor and cancelled.
 
+With `certify = true` (``\\mathbb{C}`` input only) the coefficients are read
+exactly — each `ComplexF64` as the exact Gaussian rational it is — and the
+whole computation runs over ``\\mathbb{Q}(i)``: cancellation is the exact gcd,
+the rank is an exact degree, and the scalar is an exact resultant, correctly
+rounded on return. The certified claim is relative to that exact reading, not
+to whatever real-world quantity the coefficients approximate. When the exact
+reading and the `linear_tolerance` clustering disagree on any discrete
+decision, the call errors with both readings rather than guessing; adjust
+`linear_tolerance` until the readings agree to accept one of them explicitly.
+
 # Examples
 
 A degree-5 pointed rational function; its rank equals the number of zeros of
@@ -145,6 +155,9 @@ julia> import HomotopyContinuation; HomotopyContinuation.@var x;
 
 julia> global_unstable_A1_degree((x-1)*(x-2)*(x-3), (x-1)*(x-4))
 (ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im], -1.9999999999999987 + 3.337899271044116e-15im)
+
+julia> global_unstable_A1_degree((x-1)*(x-2)*(x-3), (x-1)*(x-4); certify = true)
+(ComplexF64[1.0 + 0.0im 0.0 + 0.0im; 0.0 + 0.0im 1.0 + 0.0im], -2.0 + 0.0im)
 ```
 
 # References
@@ -181,7 +194,9 @@ the result is the ``m × m`` antidiagonal form with entry the value of
 Input shapes match [`global_unstable_A1_degree`](@ref) (see there for
 background and references): a fraction or polynomial plus the root, or
 numerator and denominator separately; the numerical ``\\mathbb{C}`` path takes two
-`HomotopyContinuation` expressions and a number. Non-reduced input is reduced
+`HomotopyContinuation` expressions and a number, and accepts the same
+`certify` keyword (exact computation over ``\\mathbb{Q}(i)`` from the
+coefficients read exactly — see there). Non-reduced input is reduced
 (and re-checked for pointedness) first.
 
 # Examples

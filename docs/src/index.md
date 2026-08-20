@@ -63,6 +63,36 @@ result. Forms over ``\mathbb{R}`` / ``\mathbb{C}`` are represented by `Matrix{Fl
 `Matrix{ComplexF64}` Gram matrices; pass `Float64` / `ComplexF64` where a
 base field is expected.
 
+### Certified computation over ``\mathbb{R}`` and ``\mathbb{C}``
+
+Every function that makes decisions from float input — the unstable
+``\mathbb{C}`` degrees, and the form-layer functions on float Gram matrices
+(`GWClass` / `GWuClass` construction, [`form_rank`](@ref),
+[`form_signature`](@ref), [`anisotropic_dimension`](@ref),
+[`anisotropic_part`](@ref), [`is_isomorphic_form`](@ref), …) — accepts an
+opt-in `certify = true` keyword. It certifies the result **relative to the
+input read exactly**: every `Float64` / `ComplexF64` entry or coefficient is
+an exact dyadic (Gaussian) rational, and with `certify = true` each discrete
+output — rank, multiplicity, signature counts, determinant sign, isometry
+verdict — is exactly correct for that exact input, computed over
+``\mathbb{Q}`` or ``\mathbb{Q}(i)`` with no float arithmetic and no
+tolerances, while returned scalars are the correctly rounded values of the
+true scalars. Nothing is certified about the real-world quantity the floats
+approximate: values that are close but not bit-equal are distinct.
+
+When certification cannot return a faithful answer it errors instead of
+guessing: on non-finite (`NaN` / `Inf`) input, when an exact scalar would
+round to zero or infinity, and — for the ``\mathbb{C}`` degrees — when the
+exact reading and the default `linear_tolerance` root clustering disagree on
+a discrete decision (the error shows both readings; adjust
+`linear_tolerance` until they agree to accept one explicitly). One deliberate
+exception is documented at [`is_isomorphic_form`](@ref): the unstable
+``k^×``-scalar comparison over ``\mathbb{R}`` / ``\mathbb{C}`` keeps its
+tolerance even under `certify`, because float scalars carry rounding drift
+from however they were produced. With `certify = false` (the default)
+every computation is byte-identical to the Macaulay2 package's behavior; on
+exact base fields the keyword is accepted and is a no-op.
+
 The full reference is split by task: [Working with forms](@ref), [Arithmetic methods](@ref), and [Computing A¹-Brouwer degrees](@ref).
 
 ## Conventions
