@@ -45,9 +45,9 @@ package [Kop20]). Two things to know when working over ``K``:
 
 Constructing stable and unstable classes, their accessors, and combining
 them with the Grothendieck–Witt ring operations (orthogonal sum and tensor
-product, with the integer multiple `n * beta` and tensor power `beta^n`),
-base change ``\text{GW}(\mathbb{Q}) → \text{GW}(K)``, and the divisorial sum
-of unstable local degrees. GW classes form a **semiring**: sums and products
+product, with the integer multiple `n * beta` and tensor power `beta^n`) and
+the divisorial sum of unstable local degrees, and base-changing them along
+``\text{GW}(\mathbb{Q}) → \text{GW}(K)``. GW classes form a **semiring**: sums and products
 exist, formal differences do not, and ``⟨-1⟩ ⊗ β`` is the opposite form
 rather than an additive inverse.
 

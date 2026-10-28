@@ -68,11 +68,12 @@ end
     # design and must stay that way. Divergences are reported individually
     # (form, both answers, invariants) and never reconciled.
     #
-    # The corpus deliberately includes every negative-signature dimension-3
-    # shape from the decomposition suite — the reach of the published M2
-    # alpha_1 defect. The QQ port repaired that defect by verifying BOTH
-    # candidate signs of its CRT representative (decomposition.jl,
-    # _reduce_aniso_dim3), so no divergence is expected; any that appears
+    # The corpus deliberately includes negative-signature dimension-3 shapes
+    # from the decomposition suite — the reach of the published M2 alpha_1
+    # defect — among them the forms that exposed the v1.0.0 correction of the
+    # QQ dimension-3 reducer (decomposition.jl, _reduce_aniso_dim3), which now
+    # scans the CRT representatives of each sign outward from 0 and errors if
+    # none splits off a summand. No divergence is expected; any that appears
     # belongs in the erratum.
     toQQmat(M) = map_entries(x -> coeff(x, 0), M)
     corpus = Any[
@@ -81,6 +82,11 @@ end
         (1, 1, 1, 1, -1), (3, 5, 1, -1), (2, 1, -1), (-1, -1, -1, -1, -1, 1),
         (-1, -1, -1, -1, 1), (-1, -2, -5), (-3, -5, -30), (7,), (-2, -3),
         (1, -1, 1, -1),
+        # the v1.0.0 dimension-3 regressions of the decomposition suite
+        (1, 1, 1, 7, -7), (-1, -1, -1, -1, 7),
+        (59, 59, 7, 7, -1, -1, -1, -1, -1, -1, -1, -1),
+        (-1, -3, -5, 7, -7), (-1, -1, -1, 3, -3), (-3, -5, -7, 1, -1),
+        (1, 3, 5, 7, -7), (5, 7, 7, 3, -3),
     ]
     grams = [gw_matrix(diagonal_form(QQ, e)) for e in corpus]
     push!(grams, QQ[2 1; 1 3], QQ[1 4 7; 4 3 -1; 7 -1 5],
