@@ -212,7 +212,9 @@ function global_unstable_A1_degree(f::HC.Expression, g::HC.Expression;
     linear_tolerance > 0 || error("linearTolerance must be a positive number")
     certify && return _certified_global_unstable(f, g, linear_tolerance)
     var = _the_variable(f, g)
-    lcg = _lead_coefficient(g, var)
+    # f is rebuilt monic from its roots, so g is scaled by the same factor: the
+    # pair stands for the rational function f/g, as on the exact path
+    lcg = _lead_coefficient(g, var) / _lead_coefficient(f, var)
     r1, r2 = _remove_common_approx(_poly_roots(f, var), _poly_roots(g, var),
                                    linear_tolerance)
     d = length(r1)
@@ -231,7 +233,9 @@ function local_unstable_A1_degree(f::HC.Expression, g::HC.Expression, r::Number;
     linear_tolerance > 0 || error("linearTolerance must be a positive number")
     certify && return _certified_local_unstable(f, g, r, linear_tolerance)
     var = _the_variable(f, g)
-    lcg = _lead_coefficient(g, var)
+    # f is rebuilt monic from its roots, so g is scaled by the same factor: the
+    # pair stands for the rational function f/g, as on the exact path
+    lcg = _lead_coefficient(g, var) / _lead_coefficient(f, var)
     r1, r2 = _remove_common_approx(_poly_roots(f, var), _poly_roots(g, var),
                                    linear_tolerance)
     d = length(r1)

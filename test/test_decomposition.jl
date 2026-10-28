@@ -1,10 +1,15 @@
 # Decomposition layer: anisotropic part, sum decomposition.
 #
 # Provenance of expected values:
-# - "M2 TEST 47": the only upstream TEST block for this layer (trivial paths only).
+# - "M2 Test 47", "M2 Tests 48–49": the TEST blocks for this layer in
+#   A1BrouwerDegrees v2.1, on the development branch of Macaulay2, whose numbering
+#   the labels follow — Test 47 the trivial paths, Tests 48-49 the Witt
+#   decomposition of forms reduced through the QQ dim-4 and dim-3 reducers.
 # - "M2 capture": captured by running M2 1.25.11 on the package —
-#   getSumDecomposition has NO upstream TEST block, and the QQ dim-4/3/2 reducers
-#   are only hit via trivial shortcuts upstream, so these runs are the oracle.
+#   getSumDecomposition has NO upstream TEST block, and these runs are its oracle.
+#   For the QQ reducers they are the only M2 reference for the dim-2 entry at
+#   rank > 2 and the dim-1 branch; the other captures repeat paths that Tests
+#   48-49 take.
 # - "consistency": validated via invariants and the Witt-decomposition identity
 #   q ≅ a ⊕ wH, not against captured M2 output.
 #
@@ -73,18 +78,51 @@ end
     @test gw_matrix(a) == matrix(QQ, [2;;])       # M2 capture: {{2}}
 end
 
-@testset "Negative-signature reducer paths (consistency)" begin
-    # Negative-signature forms whose reduction passes through the dim-4 and dim-3
-    # reducers; validated via invariants and the Witt decomposition q ≅ a ⊕ wH.
+@testset "M2 Tests 48–49 — getAnisotropicPart through the dim-4 and dim-3 reducers" begin
+    # Test 48: negative signature, through the dim-4 and then the dim-3 reducer
     q4neg = diagonal_form(QQ, (-1, -1, -1, -1, -1, 1))
     @test anisotropic_dimension(q4neg) == 4
     a = check_witt_decomposition(q4neg)
     @test is_isomorphic_form(a, diagonal_form(QQ, (-1, -1, -1, -1)))
 
+    # Test 49: the Witt decomposition q ≅ a ⊕ wH for either sign of the signature
+    for D in ((-1, -1, -1, -1, 1), (-2, -3, -5, -7, -11, 1),
+              (2, 3, 5, 7, 11, -1), (-1, -1, 2, 3, -5, 30))
+        check_witt_decomposition(diagonal_form(QQ, D))
+    end
+    # its first form, which enters the dim-3 reducer directly (consistency)
     q3neg = diagonal_form(QQ, (-1, -1, -1, -1, 1))
     @test anisotropic_dimension(q3neg) == 3
-    b = check_witt_decomposition(q3neg)
-    @test is_isomorphic_form(b, diagonal_form(QQ, (-1, -1, -1)))
+    @test is_isomorphic_form(anisotropic_part(q3neg), diagonal_form(QQ, (-1, -1, -1)))
+end
+
+@testset "QQ dim-3 reducer, sign and 2-adic class of the split (consistency)" begin
+    # The split <a> must be represented by the anisotropic part: a must have its
+    # sign when that part is definite, and, when 2 is not a relevant prime, avoid
+    # the one 2-adic square class it may miss. In the first three forms both CRT
+    # representatives nearest 0 fail one of these conditions.
+    #
+    # <1,1,1,7,-7> = <1,1,1> + H: 7 is not a sum of three squares; -42 is negative
+    a = check_witt_decomposition(diagonal_form(QQ, (1, 1, 1, 7, -7)))
+    @test is_isomorphic_form(a, diagonal_form(QQ, (1, 1, 1)))
+    # <-1,-1,-1,-1,7> = <-2,-6,-21> + H, since <1,1,1,1> = <7,2,6,21> on the
+    # orthogonal basis (2,1,1,1), (0,1,-1,0), (0,1,1,-2), (3,-2,-2,-2): here 6 is
+    # positive, and -1 lies in the 2-adic class of 7, which the part misses
+    a = check_witt_decomposition(diagonal_form(QQ, (-1, -1, -1, -1, 7)))
+    @test is_isomorphic_form(a, diagonal_form(QQ, (-2, -6, -21)))
+    # rank 12, through the dim-4 reducer and then the dim-3 reducer at signature -3
+    q = diagonal_form(QQ, (59, 59, 7, 7, -1, -1, -1, -1, -1, -1, -1, -1))
+    @test anisotropic_dimension(q) == 4
+    a = check_witt_decomposition(q)
+    @test form_signature(a) == -4
+    # <s a1, s a2, s a3> + <e,-e> with a1, a2, a3, e odd and s = ±1: a definite,
+    # hence anisotropic, ternary form plus H, so the anisotropic part is the
+    # ternary form; its entries meet all four 2-adic unit classes
+    for a1 in 1:2:7, a2 in a1:2:7, a3 in a2:2:7, e in 1:2:7, sgn in (1, -1)
+        q = diagonal_form(QQ, (sgn * a1, sgn * a2, sgn * a3, e, -e))
+        @test is_isomorphic_form(anisotropic_part(q),
+                                 diagonal_form(QQ, (sgn * a1, sgn * a2, sgn * a3)))
+    end
 end
 
 @testset "Per-field anisotropic parts (M2 capture, literal)" begin
@@ -120,6 +158,28 @@ end
 
     # rank 0
     @test sum_decomposition_string(GWClass(zero_matrix(QQ, 0, 0))) == "empty form"
+end
+
+@testset "sum_decomposition_string over a non-prime finite field (consistency)" begin
+    # elements of the prime field are balanced modulo the characteristic, 4 -> -1
+    # in GF(25); others have no integer representative and print as themselves
+    F25, o = finite_field(5, 2, "o")
+    @test sum_decomposition_string(GWClass(matrix(F25, 1, 1, [F25(4)]))) == "<-1>"
+    @test sum_decomposition_string(GWClass(matrix(F25, 1, 1, [o]))) == "<o>"
+    @test sum_decomposition_string(GWClass(matrix(F25, [o 1; 1 2]))) isa String
+
+    # Nemo's legacy fields from Native.finite_field have their own element types
+    # and print as finite_field does
+    F9, a = finite_field(3, 2, "a")
+    for (G9, b) in (Native.finite_field(3, 2, "a"), Native.finite_field(ZZ(3), 2, "a"))
+        @test sum_decomposition_string(GWClass(matrix(G9, 1, 1, [G9(2)]))) == "<-1>"
+        @test sum_decomposition_string(GWClass(diagonal_matrix(G9, [G9(1), b]))) == "<1> + <a>"
+        for (m, n) in ((matrix(F9, [a 1; 1 2]), matrix(G9, [b 1; 1 2])),
+                       (diagonal_matrix(F9, [F9(1), F9(1), F9(1), a]),
+                        diagonal_matrix(G9, [G9(1), G9(1), G9(1), b])))
+            @test sum_decomposition_string(GWClass(n)) == sum_decomposition_string(GWClass(m))
+        end
+    end
 end
 
 @testset "Unstable sum decomposition (M2 capture)" begin

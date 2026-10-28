@@ -12,12 +12,13 @@ Supported base fields: ``\mathbb{Q}``, finite fields of odd characteristic,
 any absolute simple number field (`AbsSimpleNumField` — the fields produced
 by `quadratic_field`, `number_field(f)`, and
 `Hecke.rationals_as_number_field()`), and ``\mathbb{R}`` / ``\mathbb{C}``
-via `Matrix{Float64}` / `Matrix{ComplexF64}` Gram matrices. Decisions on
-float Gram matrices can be made exactly from the entries read as exact
-rationals with the opt-in `certify = true` keyword (see *Certified
-computation* on the manual's front page). Non-simple
-fields (`number_field([f, g])`) are rejected with an error naming the fix:
-convert with `simple_extension(K)` first.
+via `Matrix{Float64}` / `Matrix{ComplexF64}` Gram matrices (pass `Float64` /
+`ComplexF64` where a base field is expected). Decisions on float Gram
+matrices can be made exactly from the entries read as exact rationals with
+the opt-in `certify = true` keyword (see *Certified computation* on the
+manual's front page). Non-simple fields (`number_field([f, g])`) are
+rejected with an error naming the fix: convert with `simple_extension(K)`
+first.
 
 Over a number field the anisotropic part runs the Koprowski–Rothkegel
 algorithms [KR23] on top of the Koprowski–Czogała local theory [KC18]
@@ -45,12 +46,13 @@ package [Kop20]). Two things to know when working over ``K``:
 
 ## Classes and ring operations
 
-Stable and unstable classes, accessors, orthogonal sum and tensor product
-(with the integer multiple `n * beta` and tensor power `beta^n`), base
-change ``\text{GW}(\mathbb{Q}) → \text{GW}(K)``, and the divisorial sum.
-GW classes form a **semiring**: sums and products exist, formal
-differences do not, and ``⟨-1⟩ ⊗ β`` is the opposite form rather than an
-additive inverse.
+Constructing stable and unstable classes, their accessors, and combining
+them with the Grothendieck–Witt ring operations (orthogonal sum and tensor
+product, with the integer multiple `n * beta` and tensor power `beta^n`),
+base change ``\text{GW}(\mathbb{Q}) → \text{GW}(K)``, and the divisorial sum
+of unstable local degrees. GW classes form a **semiring**: sums and products
+exist, formal differences do not, and ``⟨-1⟩ ⊗ β`` is the opposite form
+rather than an additive inverse.
 
 ```@autodocs
 Modules = [MotivicHomotopy]
@@ -59,8 +61,9 @@ Pages   = ["gw_classes.jl", "gwu_classes.jl"]
 
 ## Building and decomposing forms
 
-Standard forms, diagonalization by congruence, simplified representatives,
-and the Witt (sum) decomposition and anisotropic part.
+Building standard forms, diagonalizing them by congruence, extracting
+simplified representatives, and computing the Witt (sum) decomposition and
+anisotropic part.
 
 ```@autodocs
 Modules = [MotivicHomotopy]
@@ -70,15 +73,16 @@ Pages   = ["building_forms.jl", "matrix_methods.jl", "simplified_representatives
 ## Invariants and classification
 
 Rank, signatures, discriminants, Hasse–Witt invariants, anisotropic
-dimension and Witt index, the isotropy predicates, and the isomorphism
-test. Conventions: [`signed_discriminant`](@ref) is
-``(-1)^{n(n-1)/2} a_1 ⋯ a_n`` ([KR23] §2), compared over ``K`` only up to
-squares; [`hasse_witt_invariant`](@ref) computes the **Hasse** invariant
-``∏_{i<j}(a_i, a_j)_v`` (Lam's convention, [Lam05] V.3 — the name is
-Macaulay2 heritage, and it is not the Witt/Cassels invariant); places of a
-number field are always passed as prime ideals of the maximal order or as
-infinite places, never as rational primes; and `==` is literal
-Gram-matrix equality everywhere, with mathematical equivalence tested by
+dimension and Witt index, the isotropy predicates, and the isomorphism test
+that classifies forms up to equivalence. Conventions:
+[`signed_discriminant`](@ref) is ``(-1)^{n(n-1)/2} a_1 ⋯ a_n`` ([KR23] §2),
+compared over ``K`` only up to squares; [`hasse_witt_invariant`](@ref)
+computes the **Hasse** invariant ``∏_{i<j}(a_i, a_j)_v`` (Lam's convention,
+[Lam05] V.3 — the name is Macaulay2 heritage, and it is not the Witt/Cassels
+invariant); places of a number field are always passed as prime ideals of the
+maximal order or as infinite places, never as rational primes; and `==` is
+literal Gram-matrix equality everywhere, with mathematical equality in
+``\text{GW}(k)`` tested by
 [`is_isomorphic_form`](@ref).
 
 ```@autodocs
@@ -93,7 +97,7 @@ local_anisotropic_dimension
 ## Étale algebras and transfer
 
 Multiplication matrices, trace and norm of an étale algebra, and the
-transfer of a Grothendieck–Witt class.
+transfer (corestriction) of a Grothendieck–Witt class.
 
 ```@autodocs
 Modules = [MotivicHomotopy]

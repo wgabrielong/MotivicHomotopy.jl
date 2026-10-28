@@ -1,6 +1,7 @@
 # Core types (GWClass / GWuClass).
 #
-# Ported from the TEST blocks of the A1BrouwerDegrees Macaulay2 package (v2.0).
+# Ported from the TEST blocks of the A1BrouwerDegrees Macaulay2 package (v2.1, on
+# the development branch of Macaulay2), whose numbering the labels follow.
 # Expected values are M2's — taken from the M2 TEST blocks, not derived independently.
 #
 # Porting notes:
@@ -177,6 +178,24 @@ end
     # Error paths ported from the addGWuDivisorial source:
     @test_throws ErrorException divisorial_sum([alpha, beta], [-2])      # length mismatch
     @test_throws ErrorException divisorial_sum(typeof(alpha)[], Int[])   # empty sum
+end
+
+@testset "divisorial_sum over distinct fields of the same order (consistency)" begin
+    # GF(7) and Native.GF(7) are different objects of the same order; the second
+    # class is moved into the first one's field, as gw_direct_sum does
+    a = GWuClass(matrix(GF(7), 1, 1, [3]))
+    b = GWuClass(matrix(Native.GF(7), 1, 1, [5]))
+    ds = divisorial_sum([a, b], [1, 2])
+    @test gw_matrix(ds) == matrix(GF(7), [3 0; 0 5])
+    @test gw_scalar(ds) == GF(7)(3 * 5 * (1 - 2)^2)
+end
+
+@testset "Builders over étale algebras and Float64 (consistency)" begin
+    Sp, (y,) = polynomial_ring(QQ, ["y"])
+    S, _ = quo(Sp, ideal(Sp, [y^2 - 1]))
+    @test hyperbolic_form(S) == GWClass(matrix(S, 2, 2, [S(1), S(0), S(0), S(-1)]))
+    @test pfister_form(S, S(y)) == GWClass(matrix(S, 2, 2, [S(1), S(0), S(0), S(-y)]))
+    @test gw_matrix(diagonal_form(Float64, QQ(1//2))) == [0.5;;]
 end
 
 @testset "Well-definedness rejections (M2 isWellDefinedGW error paths)" begin

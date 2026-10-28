@@ -1,11 +1,12 @@
 # Invariants, in dependency order, plus the building-forms constructors that the
 # M2 TEST blocks use to set up their inputs.
 #
-# Ported from the TEST blocks of the A1BrouwerDegrees Macaulay2 package (v2.0):
+# Ported from the TEST blocks of the A1BrouwerDegrees Macaulay2 package (v2.1, on
+# the development branch of Macaulay2, whose numbering the labels follow):
 # Tests 7, 8, 16, 17, 21-25, 35, 42-46. Expected values are M2's asserts.
 #
 # Covered elsewhere: Tests 4-6 (test_degrees.jl); Tests 34, 36-37 and the étale
-# paths (test_v2_features.jl); Test 47 + decomposition (test_decomposition.jl).
+# paths (test_v2_features.jl); Tests 47-49 + decomposition (test_decomposition.jl).
 
 using Test
 using Oscar
@@ -15,6 +16,21 @@ using MotivicHomotopy
 
 @testset "M2 Test 16 — getPadicValuation" begin
     @test padic_valuation(27, 3) == 3
+end
+
+@testset "padic_valuation needs a prime (consistency)" begin
+    @test_throws ErrorException padic_valuation(12, 4)
+    @test_throws ErrorException padic_valuation(12//5, 4)
+end
+
+@testset "Hasse-Witt invariant at 2 for odd entries (consistency)" begin
+    # (a, b)_2 = (-1)^((a-1)/2 (b-1)/2) for odd a, b: the invariant at 2 can be -1
+    # although 2 is not a relevant prime, as the docstrings now say
+    for D in ((-1, -1), (3, 3), (3, 7), (-1, -1, -1))
+        q = diagonal_form(QQ, D)
+        @test !(ZZ(2) in relevant_primes(q))
+        @test hasse_witt_invariant(q, 2) == -1
+    end
 end
 
 # ---------- rank / signature / discriminant / relevant primes ----------
