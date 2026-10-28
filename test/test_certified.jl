@@ -56,6 +56,37 @@ end
     @test gw_scalar(L) == -1.0 + 0.0im            # (-1)^10 * ((2-3)/1)^5
 end
 
+@testset "certified CC unstable degrees: non-monic numerators" begin
+    # The pair (f, g) stands for the rational function f/g, normalized by the
+    # leading coefficient of f as on the exact and float paths. For
+    # f/g = (x^2-3x+2)/((x-4)/2) the scalars are -Res = -(g(1) g(2)) = -3/2
+    # globally, then 3/2 at 1 and -1 at 2; all are dyadic, so certify = true
+    # must return them exactly.
+    for (f, g) in ((2x^2 - 6x + 4, x - 4), (4x^2 - 12x + 8, 2x - 8))
+        @test gw_scalar(global_unstable_A1_degree(f, g; certify = true)) == -1.5 + 0.0im
+        @test gw_scalar(local_unstable_A1_degree(f, g, 1; certify = true)) == 1.5 + 0.0im
+        @test gw_scalar(local_unstable_A1_degree(f, g, 2; certify = true)) == -1.0 + 0.0im
+    end
+    # a negative leading coefficient: f/g = (x^3 - x)/(-3/2), so the global
+    # scalar is -(-3/2)^3 = 27/8 and the local one at 0 is
+    # (-3/2)/((0-1)(0+1)) = 3/2
+    three = HC.Expression(3)
+    @test gw_scalar(global_unstable_A1_degree(-2x^3 + 2x, three; certify = true)) ==
+          3.375 + 0.0im
+    @test gw_scalar(local_unstable_A1_degree(-2x^3 + 2x, three, 0; certify = true)) ==
+          1.5 + 0.0im
+    # scaling f and g together does not change f/g, so it does not change the
+    # certified scalar either
+    f = (x - 1) * (x - 2) * (x - 3)
+    g = (x - 1) * (x - 4)
+    unscaled = gw_scalar(global_unstable_A1_degree(f, g; certify = true))
+    for c in (2, -3)
+        @test gw_scalar(global_unstable_A1_degree(c * f, c * g; certify = true)) == unscaled
+        @test gw_scalar(local_unstable_A1_degree(c * f, c * g, 2; certify = true)) ==
+              gw_scalar(local_unstable_A1_degree(f, g, 2; certify = true))
+    end
+end
+
 @testset "certified CC unstable degrees: divergence guard" begin
     # near-common root: the tolerance reading cancels 1 against 1+1e-8 (rank
     # 1), the exact reading has a trivial gcd (rank 2)

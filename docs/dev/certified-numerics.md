@@ -53,13 +53,15 @@ product over numerically-found roots. Read exactly, that product *is* a
 resultant: the tolerance cancellation becomes the exact `gcd` in ℚ(i)[x], rank
 and multiplicity become exact degrees and deflation counts, and the scalar
 becomes an exact resultant / evaluation formula. Oscar's monic gcd keeps the
-leading coefficient of the denominator intact, which is exactly what makes the
-exact formula match the float path's use of the original leading coefficient
-after cancellation.
+leading coefficients of numerator and denominator intact, which is exactly what
+makes the exact formula match the float path, which pairs the monic numerator
+with the denominator divided by the original leading coefficient of the
+numerator after cancellation.
 
-**Opt-in keyword, defaults byte-identical to Macaulay2.** The float paths of
-this package deliberately reproduce the Macaulay2 package's behavior,
-including its exact-`== 0` pivot tests on floats. Certification therefore had
+**Opt-in keyword, defaults unchanged.** The float paths of this package
+follow the Macaulay2 package's behavior, including its exact-`== 0` pivot tests
+on floats, apart from the corrections listed for v1.0.0 in the manual's version
+history. Certification therefore had
 to be additive: `certify = false` (the default) is unchanged everywhere, and
 every certified branch carries a comment marking it as an extension beyond M2.
 
@@ -134,6 +136,12 @@ belong to whichever release ships first.
   every touched function is unchanged.
 - The full in-repo suite passes (2850 tests) and the Documenter build is
   clean.
+
+These runs were made at a74e014, before the v1.0.0 corrections. Since then
+`transfer_gw` and the normalization of the ℂ unstable degrees by the leading
+coefficient of the numerator differ from the Macaulay2 package by design, as
+the manual's version history records, and the certified ℂ formulas follow the
+corrected normalization.
 
 ## Viewing the documentation locally
 

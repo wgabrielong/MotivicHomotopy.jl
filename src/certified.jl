@@ -1,7 +1,7 @@
 # Certified re-computation of the float (ℝ/ℂ) decisions, behind the opt-in
 # `certify = true` keyword. This file is a deliberate extension beyond the
 # Macaulay2 package, which has no certification; every default
-# (`certify = false`) path in the package stays byte-identical to the M2 port.
+# (`certify = false`) path in the package is left unchanged by it.
 #
 # The contract (compare the certified-interval contract in nf_arithmetic.jl):
 # a `Float64` / `ComplexF64` value is an exact dyadic (Gaussian) rational, and

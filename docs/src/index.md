@@ -100,8 +100,8 @@ exception is documented at [`is_isomorphic_form`](@ref): the unstable
 ``k^×``-scalar comparison over ``\mathbb{R}`` / ``\mathbb{C}`` keeps its
 tolerance even under `certify`, because float scalars carry rounding drift
 from however they were produced. With `certify = false` (the default)
-every computation is byte-identical to the Macaulay2 package's behavior; on
-exact base fields the keyword is accepted and is a no-op.
+every computation takes the default path, unchanged by the keyword; on exact
+base fields the keyword is accepted and is a no-op.
 
 The full reference is split by task: [Working with forms](@ref), [Arithmetic methods](@ref), and [Computing A¹-Brouwer degrees](@ref).
 

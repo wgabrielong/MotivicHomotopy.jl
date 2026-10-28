@@ -118,9 +118,10 @@ function _certified_reduced_pair(f::HC.Expression, g::HC.Expression, var,
     gK = _exact_qi_poly(Kx, g, var)
     common = gcd(fK, gK)
     # Oscar's polynomial gcd over a field is monic, so cancelling it leaves
-    # lc(g_reduced) = lc(g) — the exact scalar formulas below then match the
-    # float path, which multiplies by the ORIGINAL leading coefficient of g
-    # after cancellation (see `lcg` in the default bodies).
+    # lc(f_reduced) = lc(f) and lc(g_reduced) = lc(g) — the exact scalar
+    # formulas below then match the float path, which multiplies by
+    # lc(g) / lc(f) of the ORIGINAL polynomials after cancellation (see `lcg`
+    # in the default bodies).
     isone(leading_coefficient(common)) ||
         error("internal error: expected a monic gcd")
     f_reduced = divexact(fK, common)
@@ -141,12 +142,16 @@ function _certified_global_unstable(f::HC.Expression, g::HC.Expression,
     f_reduced, g_reduced, d = _certified_reduced_pair(f, g, var, linear_tolerance)
     d > degree(g_reduced) ||
         error("the rational function is not pointed after reduction")
+    # f is made monic, so g is scaled by the same factor: the pair
+    # (monic_f, g_scaled) stands for the rational function f/g, as on the
+    # float and exact paths
     monic_f = divexact(f_reduced, leading_coefficient(f_reduced))
-    # the float path's scalar (-1)^(d(d-1)/2) ∏_a lc(g) ∏_b (a-b), with a over
-    # the roots of f_reduced and b over the roots of g_reduced, IS the
-    # resultant of the monic numerator with g_reduced — computed here with no
-    # root ever found
-    exact_scalar = K((-1)^div(d^2 - d, 2)) * resultant(monic_f, g_reduced)
+    g_scaled = divexact(g_reduced, leading_coefficient(f_reduced))
+    # the float path's scalar (-1)^(d(d-1)/2) ∏_a (lc(g)/lc(f)) ∏_b (a-b),
+    # with a over the roots of f_reduced and b over the roots of g_reduced, IS
+    # the resultant of the monic numerator with g_scaled — computed here with
+    # no root ever found
+    exact_scalar = K((-1)^div(d^2 - d, 2)) * resultant(monic_f, g_scaled)
     scalar = _round_to_c64(exact_scalar)
     (iszero(scalar) || !isfinite(scalar)) && error(_CERT_UNREPRESENTABLE_ERR)
     GWuClass(Matrix{ComplexF64}(LinearAlgebra.I, d, d), scalar)
@@ -163,7 +168,9 @@ function _certified_local_unstable(f::HC.Expression, g::HC.Expression, r::Number
     # r read through the same ComplexF64 conversion as the default path
     rc = ComplexF64(r)
     rK = _exact_qi(rc)
+    # f is made monic, so g is scaled by the same factor, as in the global case
     monic_f = divexact(f_reduced, leading_coefficient(f_reduced))
+    g_scaled = divexact(g_reduced, leading_coefficient(f_reduced))
 
     # is-root guard: the default reading tests |∏(rc - a)| over the numerical
     # roots against the tolerance (replicated verbatim), the exact reading
@@ -194,9 +201,10 @@ function _certified_local_unstable(f::HC.Expression, g::HC.Expression, r::Number
                                     linear_tolerance)
 
     # the float path's scalar (-1)^(k(k-1)/2) (grr / ld_denom)^k: grr is
-    # g_reduced(r) (since lc(g_reduced) = lc(g)), and ld_denom — the product
-    # over the roots of the numerator other than r — is h(r)
-    g_at_r = evaluate(g_reduced, rK)
+    # g_scaled(r) (since lc(g_reduced) / lc(f_reduced) = lc(g) / lc(f)), and
+    # ld_denom — the product over the roots of the numerator other than r — is
+    # h(r)
+    g_at_r = evaluate(g_scaled, rK)
     h_at_r = evaluate(h, rK)
     exact_scalar = K((-1)^div(k^2 - k, 2)) * divexact(g_at_r, h_at_r)^k
     scalar = _round_to_c64(exact_scalar)
