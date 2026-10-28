@@ -1,7 +1,8 @@
 # Local and global A¹-degrees via the Bézoutian (exact path: QQ, F_q).
 #
-# Ported from M2 TEST blocks 4, 5, 6, 9; Gram-matrix reference values captured from
-# M2 1.25.11. Comparisons against captures are class-level (is_isomorphic_form):
+# Ported from M2 TEST blocks 4, 5, 6, 9 (A1BrouwerDegrees v2.1, on the development
+# branch of Macaulay2); Gram-matrix reference values captured from M2 1.25.11.
+# Comparisons against captures are class-level (is_isomorphic_form):
 # the Gram matrix depends on the standard-monomial basis ORDER, and Oscar's
 # monomial_basis orders differently than M2's basis — the results are
 # permutation-congruent. M2's own TEST blocks compare class-level too.
@@ -66,6 +67,11 @@ end
     # order ([x, 1]) — compared as a set.
     @test length(B) == 2
     @test Set(B) == Set([one(S), x])
+    # an ideal that is not prime would merge the local algebras of two zeros,
+    # here (0, 0) and (1, 0) of the cubic below
+    Sd, (u, v) = polynomial_ring(QQ, ["u", "v"])
+    @test_throws ErrorException local_algebra_basis([u^3 - u^2 - v, v],
+                                                    ideal(Sd, [u * (u - 1), v]))
 end
 
 @testset "Doc-example cross-check — cubic meets the x-axis (M2 capture)" begin
