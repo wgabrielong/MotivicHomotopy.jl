@@ -739,3 +739,67 @@ end
         @test is_square(dp * d)                       # same square class
     end
 end
+
+@testset "transfer_gw over number fields" begin
+    # A number field L over its base field k is a finite étale k-algebra, and
+    # transfer_gw computes the transfer along Tr_{L/k} with Hecke's trace on
+    # Hecke's basis of L. Each value is checked against a route sharing no code
+    # with that: the étale algebra k[t]/(f) presenting L, whose transfer is
+    # built from multiplication matrices, Hecke's restriction of scalars, or a
+    # computation by hand.
+    Qx, x = QQ["x"]
+    K, a = number_field(x^2 - 2, "a")
+
+    # By hand, on the basis 1, sqrt2: Tr(1) = 2 and Tr(sqrt2) = 0, so tr<1> is
+    # diag(2, 4), and tr<3 + 5 sqrt2> is diag(2, 4) [3 10; 5 3] = [6 20; 20 12].
+    @test gw_matrix(transfer_gw(GWClass(matrix(K, 1, 1, [K(1)])))) == QQ[2 0; 0 4]
+    @test gw_matrix(transfer_gw(GWClass(matrix(K, 1, 1, [3 + 5 * a])))) ==
+          QQ[6 20; 20 12]
+
+    for f in (x^2 - 2, x^2 + 1, x^3 - 2, x^4 - x^3 - x^2 + x + 1)
+        L, c = number_field(f, "c")
+        S, (t,) = polynomial_ring(QQ, ["t"])
+        A, _ = quo(S, ideal(S, [f(t)]))
+        # c goes to t, so an element goes to its power-basis coordinates in t
+        into_A(e) = (coords = coordinates(e);
+                     A(sum(coords[i] * t^(i - 1) for i in eachindex(coords))))
+        for B in (matrix(L, 1, 1, [2 + c]),
+                  matrix(L, 2, 2, [L(3), L(1), L(1), 1 + c]),
+                  matrix(L, 3, 3, [L(1), c, L(0), c, L(2), L(1), L(0), L(1), 5 - c]))
+            G = gw_matrix(transfer_gw(GWClass(B)))
+            @test base_ring(G) === QQ
+            @test nrows(G) == nrows(B) * degree(L)
+            @test G == gw_matrix(transfer_gw(GWClass(map(into_A, B))))
+            @test G == map_entries(QQ, gram_matrix(
+                restrict_scalars(quadratic_space(L, B), QQ)[1]))
+        end
+    end
+
+    # A relative field transfers to its base field: for L = K(sqrt3) over
+    # K = QQ(sqrt2), by hand tr<1> = diag(2, 6) over K on the basis 1, sqrt3.
+    Kz, z = K["z"]
+    L, r = number_field(z^2 - 3, "r")
+    @test gw_matrix(transfer_gw(GWClass(matrix(L, 1, 1, [L(1)])))) ==
+          matrix(K, 2, 2, [2, 0, 0, 6])
+    Ky, (y,) = polynomial_ring(K, ["y"])
+    E, _ = quo(Ky, ideal(Ky, [y^2 - 3]))
+    into_E(e) = (coords = coordinates(e);
+                 E(sum(coords[i] * y^(i - 1) for i in eachindex(coords))))
+    for B in (matrix(L, 1, 1, [1 + r]), matrix(L, 2, 2, [L(3), r, r, 1 + a * r]))
+        G = gw_matrix(transfer_gw(GWClass(B)))
+        @test base_ring(G) === K
+        @test G == gw_matrix(transfer_gw(GWClass(map(into_E, B))))
+    end
+
+    # A non-simple field, which the invariant layers refuse: on Hecke's basis
+    # 1, u, v, uv of QQ(sqrt2, sqrt3), tr<1> is the trace form diag(4, 8, 12, 24),
+    # as for the étale algebra QQ[u, v]/(u^2 - 2, v^2 - 3) on its standard
+    # monomials 1, u, v, uv.
+    N, _ = number_field([x^2 - 2, x^2 - 3], ["u", "v"])
+    S2, (u, v) = polynomial_ring(QQ, ["u", "v"])
+    biquadratic, _ = quo(S2, ideal(S2, [u^2 - 2, v^2 - 3]))
+    trace_form = diagonal_matrix(QQ, [4, 8, 12, 24])
+    @test gw_matrix(transfer_gw(GWClass(matrix(N, 1, 1, [N(1)])))) == trace_form
+    @test gw_matrix(transfer_gw(diagonal_form(biquadratic, biquadratic(1)))) ==
+          trace_form
+end
