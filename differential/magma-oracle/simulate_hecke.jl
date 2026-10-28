@@ -133,10 +133,30 @@ function _sim_lines(r::ExtRecord, K::AbsSimpleNumField)::Vector{Tuple{String, St
             expected *= (roots[a] - roots[b])^(2 * length(Ds[a]) * length(Ds[b]))
         end
         put("ds_scalar_ok", pay[:scalar] == expected)
+
+    elseif r.kind == :transfer
+        # An absolute field goes through Hecke's restriction of scalars, a route
+        # other than transfer_gw's own; a relative one through Hecke's trace,
+        # which transfer_gw also uses, so that key is a plumbing check only.
+        B = pay[:B]
+        G = pay[:m] === nothing ? _hecke_restriction(B) : _sim_relative_transfer(B)
+        put("tr_gram", magma_rationals(transfer_coordinates(G)))
     else
         error("unknown record kind $(r.kind)")
     end
     out
+end
+
+# The transfer along Tr_{L/K} with Hecke's trace on Hecke's basis of L.
+function _sim_relative_transfer(B::MatElem)
+    L = base_ring(B)
+    b = basis(L)
+    d, n = length(b), nrows(B)
+    G = zero_matrix(base_field(L), n * d, n * d)
+    for i in 1:n, j in 1:n, s in 1:d, t in 1:d
+        G[(i - 1) * d + s, (j - 1) * d + t] = tr(B[i, j] * b[s] * b[t])
+    end
+    G
 end
 
 """

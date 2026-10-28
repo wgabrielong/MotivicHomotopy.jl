@@ -301,10 +301,24 @@ function _cmp_dsum(c::CmpCtx)
     ccheck!(c, "divisorial_sum", _istrue(L), "scalar formula recomputed by the oracle")
 end
 
+# The script carries only the input form, so Magma's matrix is compared with
+# transfer_gw as the package computes it now, not with an output frozen into
+# the script when it was generated.
+function _cmp_transfer(c::CmpCtx)
+    L = lines_of(c, "tr_gram")
+    if isempty(L)
+        c.missing_keys[] += 1
+        return
+    end
+    ours = transfer_coordinates(gw_matrix(transfer_gw(GWClass(c.rec.payload[:B]))))
+    ccheck!(c, "transfer_gw", parse_magma_rationals(L[1]) == ours,
+        "Magma's transfer along the trace, entry by entry")
+end
+
 const _COMPARERS = Dict{Symbol, Function}(
     :sym => _cmp_sym, :form => _cmp_form, :ldim => _cmp_ldim,
     :pair => _cmp_pair, :dense => _cmp_dense, :gwu => _cmp_gwu,
-    :dsum => _cmp_dsum)
+    :dsum => _cmp_dsum, :transfer => _cmp_transfer)
 
 # The exported functions the Magma tier covers, each requiring >= 100 cases
 # in a complete run. Covered by the Hecke tier instead: GWClass validation,
@@ -319,7 +333,7 @@ const EXT_QUOTA_FUNCTIONS = [
     "hasse_witt_invariant", "hyperbolic_form", "is_anisotropic_form",
     "is_isomorphic_form", "is_isotropic_form", "local_anisotropic_dimension",
     "local_hilbert_symbol", "pfister_form", "relevant_primes",
-    "signed_discriminant", "sum_decomposition",
+    "signed_discriminant", "sum_decomposition", "transfer_gw",
 ]
 
 """

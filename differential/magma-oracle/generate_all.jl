@@ -20,7 +20,13 @@ function main()
     t = @elapsed recs = build_ext_corpus()
     println("corpus: $(length(recs)) records in $(round(t; digits = 1))s")
 
-    paths = emit_magma_chunks(recs, fields, @__DIR__)
+    # the transfer records get chunks of their own after the eight of the
+    # others, so those keep their boundaries; two, so that each fits the online
+    # calculator's input limit
+    others = [r for r in recs if r.kind != :transfer]
+    transfers = [r for r in recs if r.kind == :transfer]
+    paths = vcat(emit_magma_chunks(others, fields, @__DIR__),
+                 emit_magma_chunks(transfers, fields, @__DIR__; nchunks = 2, first = 9))
     total_kb = round(Int, sum(filesize, paths) / 1024)
     println("Magma chunks: $(length(paths)) files, $(total_kb) KiB")
 

@@ -31,6 +31,7 @@ include(joinpath(HERE, "suite_ring_ops.jl"))
 include(joinpath(HERE, "suite_base_change.jl"))
 include(joinpath(HERE, "suite_diagonalization.jl"))
 include(joinpath(HERE, "suite_gwu.jl"))
+include(joinpath(HERE, "suite_transfer.jl"))
 
 # The exported functions whose number-field support this branch added or
 # changed; each must accumulate at least QUOTA cases in a full run. The two
@@ -50,6 +51,7 @@ const QUOTA_FUNCTIONS = [
     "pfister_form", "relevant_primes",
     "signed_discriminant", "stable_part",
     "sum_decomposition", "sum_decomposition_string",
+    "transfer_gw",
     "* (integer multiple)", "^ (tensor power)",
 ]
 
@@ -63,7 +65,10 @@ const SUITES = [
     ("base_change", suite_base_change!),
     ("diagonalization", suite_diagonalization!),
     ("gwu", suite_gwu!),
-    ("decomposition", suite_decomposition!),   # heaviest last
+    ("decomposition", suite_decomposition!),   # heaviest
+    # each suite's seed comes from its position, so a new suite goes last and
+    # the suites above keep drawing the same cases
+    ("transfer", suite_transfer!),
 ]
 
 function main(args::Vector{String})

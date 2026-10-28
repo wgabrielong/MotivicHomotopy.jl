@@ -8,7 +8,7 @@
 
 struct ExtRecord
     id::String
-    kind::Symbol      # :sym, :form, :ldim, :pair, :dense, :gwu, :dsum
+    kind::Symbol      # :sym, :form, :ldim, :pair, :dense, :gwu, :dsum, :transfer
     fname::String     # DiffField name
     payload::Dict{Symbol, Any}
 end
@@ -142,8 +142,8 @@ end
     build_ext_corpus() -> Vector{ExtRecord}
 
 The full corpus, deterministic (fixed DetRNG seed, fixed pools).
-Record volumes are chosen so every covered exported function projects to at
-least 100 comparisons; `projected_credits` asserts this at build time.
+Record volumes are chosen so every covered exported function reaches at
+least 100 comparisons; `compare_results` enforces this on complete runs.
 """
 function build_ext_corpus()
     rng = DetRNG(0x4b52323345585431)          # fixed seed
@@ -316,6 +316,29 @@ function build_ext_corpus()
                 with_ap = false)
         end
     end
+    # --- :transfer — transfer_gw along Tr_{K/QQ}, and along Tr_{L/K} for a
+    # relative quadratic extension L = K(sqrt m), recomputed by Magma from the
+    # input form alone. These records come after all the others and draw from a
+    # stream of their own, so the records above, and the chunks they fill, are
+    # the same as without them.
+    trng = DetRNG(0x5452414e53464552)         # its own fixed seed
+    for f in fields
+        K = f.K
+        for n in (1, 1, 2, 2, 3, 3)
+            B = _transfer_gram(K, [one(K), f.gen], n, trng)
+            push!(recs, ExtRecord(nid("t"), :transfer, f.name,
+                                  Dict{Symbol, Any}(:B => B, :m => nothing)))
+        end
+        m = first(m for m in (2, 3, 5, 6, 7, -1, -3) if !is_square(K(m)))
+        Kz, z = K["z"]
+        L, r = number_field(z^2 - m, "r")
+        for n in (1, 2, 2)
+            B = _transfer_gram(L, [one(L), r, L(f.gen)], n, trng)
+            push!(recs, ExtRecord(nid("t"), :transfer, f.name,
+                                  Dict{Symbol, Any}(:B => B, :m => m)))
+        end
+    end
+
     _MAGMA_BUDGET_DROPPED[] > 0 &&
         println("Magma budget: $(_MAGMA_BUDGET_DROPPED[]) records dropped " *
                 "(support prime > 10^9 or oversized literal); the shapes remain " *
@@ -325,3 +348,22 @@ end
 
 "The diagonal of a square matrix as a Vector (helper shared by the emitters)."
 _diag_of(M::MatElem) = [M[i, i] for i in 1:nrows(M)]
+
+# A transferred Gram matrix as the rationals the Magma chunk prints for it: its
+# entries row by row, each entry over a number field written by its coordinates
+# in the power basis.
+function transfer_coordinates(G::MatElem)
+    entries = [G[i, j] for i in 1:nrows(G) for j in 1:ncols(G)]
+    base_ring(G) isa QQField && return entries
+    return reduce(vcat, [collect(coordinates(e)) for e in entries])
+end
+
+"Rationals as Magma prints them, comma-separated: p/q, or p when q = 1."
+magma_rationals(v::Vector) =
+    join([isone(denominator(q)) ? string(numerator(q)) :
+          "$(numerator(q))/$(denominator(q))" for q in v], ",")
+
+"The inverse of [`magma_rationals`](@ref)."
+parse_magma_rationals(s::AbstractString) =
+    [occursin('/', t) ? QQ(parse(BigInt, split(t, '/')[1]), parse(BigInt, split(t, '/')[2])) :
+                        QQ(parse(BigInt, t)) for t in split(s, ',')]

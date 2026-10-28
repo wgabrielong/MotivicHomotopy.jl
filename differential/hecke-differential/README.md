@@ -23,7 +23,12 @@ implementation does not use in that form: Hilbert reciprocity, the Hasse
 sum formula, the Pfister dichotomy, certified-numeric signatures, and a
 recomputation of the divisorial-sum scalar. `local_hilbert_symbol`
 delegates to Hecke at finite places, so it is checked through those
-identities rather than by direct comparison.
+identities rather than by direct comparison. `transfer_gw` computes with
+Hecke's trace, so it is checked against routes that do not: Hecke's
+restriction of scalars of the quadratic space over each field of the
+matrix, and the étale algebra presenting the field, whose transfer is built
+from multiplication matrices — over each field, a relative quadratic
+extension of it, and a non-simple field.
 
 ## Layout
 
