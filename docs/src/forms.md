@@ -97,7 +97,8 @@ local_anisotropic_dimension
 ## Étale algebras and transfer
 
 Multiplication matrices, trace and norm of an étale algebra, and the
-transfer (corestriction) of a Grothendieck–Witt class.
+transfer (corestriction) of a Grothendieck–Witt class over an étale algebra or
+a number field to its base field.
 
 ```@autodocs
 Modules = [MotivicHomotopy]
